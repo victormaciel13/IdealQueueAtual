@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import LoginPage from '@/react-app/pages/Login';
 import ReceptionPage from '@/react-app/pages/Reception';
 import GuichePage from '@/react-app/pages/Guiche';
+import DisplayPage from '@/react-app/pages/Display';
 import { useQueue } from '@/react-app/hooks/useQueue';
 
 function ProtectedRoute({
@@ -21,10 +22,12 @@ function ProtectedRoute({
   }
 
   if (!allowed.includes(currentUser.role)) {
+    if (currentUser.role === 'admin') {
+      return <Navigate to="/display" />;
+    }
     if (currentUser.role.startsWith('guiche')) {
       return <Navigate to="/guiche" />;
     }
-
     return <Navigate to="/" />;
   }
 
@@ -42,7 +45,7 @@ export default function App() {
         <Route
           path="/"
           element={
-            <ProtectedRoute allowed={['reception', 'admin']}>
+            <ProtectedRoute allowed={['reception']}>
               <ReceptionPage />
             </ProtectedRoute>
           }
@@ -66,6 +69,16 @@ export default function App() {
               ]}
             >
               <GuichePage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* TELA DE EXIBIÇÃO (TV) — admin */}
+        <Route
+          path="/display"
+          element={
+            <ProtectedRoute allowed={['admin']}>
+              <DisplayPage />
             </ProtectedRoute>
           }
         />

@@ -19,9 +19,9 @@ function formatElapsed(totalSeconds: number) {
 export default function ReceptionPage() {
   const {
     receptionQueue,
-    baiaQueue,
+    guicheQueue,
     dpQueue,
-    availableBaias,
+    availableGuiches,
     stats,
     currentUser,
     guicheTimers,
@@ -29,7 +29,7 @@ export default function ReceptionPage() {
     error,
     addPerson,
     callForReception,
-    completeBaia,
+    completeGuiche,
     callForDP,
     completeDP,
     resetQueue,
@@ -90,9 +90,9 @@ export default function ReceptionPage() {
               <Button variant="ghost" size="sm" onClick={() => void refresh()} title="Atualizar">
                 <RefreshCw className="w-4 h-4" />
               </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   if (confirm('Tem certeza que deseja resetar a fila?')) {
                     void resetQueue();
@@ -155,10 +155,10 @@ export default function ReceptionPage() {
             ) : (
               <div className="grid md:grid-cols-3 gap-3">
                 {guicheTimers.map((timer) => (
-                  <div key={timer.guiche_id} className="rounded-lg border border-amber-200 bg-white p-4">
-                    <div className="font-semibold text-slate-900">{timer.guiche_label}</div>
+                  <div key={timer.guiche_number} className="rounded-lg border border-amber-200 bg-white p-4">
+                    <div className="font-semibold text-slate-900">Guichê {timer.guiche_number}</div>
                     <div className="text-sm text-slate-600">{timer.person_name}</div>
-                    <div className="text-xs text-slate-500 mt-1">Atendente: {timer.user_name ?? 'Não identificado'}</div>
+                    <div className="text-xs text-slate-500 mt-1">Atendente: {timer.assigned_user_name ?? 'Não identificado'}</div>
                     <div className="mt-2 inline-flex rounded-md bg-amber-100 px-2 py-1 text-sm font-semibold text-amber-800">
                       {formatElapsed(timer.elapsed_seconds)}
                     </div>
@@ -170,6 +170,7 @@ export default function ReceptionPage() {
         </Card>
 
         <div className="grid lg:grid-cols-3 gap-6">
+          {/* Coluna 1: Formulário + Fila Recepção */}
           <div className="space-y-6">
             <PersonForm onSubmit={addPerson} />
 
@@ -196,20 +197,20 @@ export default function ReceptionPage() {
               </CardContent>
             </Card>
 
-            {availableBaias.length > 0 && receptionQueue.length > 0 && (
+            {availableGuiches.length > 0 && receptionQueue.length > 0 && (
               <Card className="border-emerald-200 bg-emerald-50">
                 <CardContent className="p-4">
                   <p className="text-sm text-emerald-700 mb-3">Chamar próximo para:</p>
                   <div className="flex flex-wrap gap-2">
-                    {availableBaias.map((baia) => (
+                    {availableGuiches.map((guiche) => (
                       <Button
-                        key={baia}
-                        onClick={() => void callForReception(baia)}
+                        key={guiche}
+                        onClick={() => void callForReception(guiche)}
                         className="bg-emerald-600 hover:bg-emerald-700"
                         disabled={!currentUser}
                       >
                         <Phone className="w-4 h-4 mr-2" />
-                        Guichê {baia}
+                        Guichê {guiche}
                       </Button>
                     ))}
                   </div>
@@ -221,6 +222,7 @@ export default function ReceptionPage() {
             )}
           </div>
 
+          {/* Coluna 2: Em Atendimento nos Guichês */}
           <div>
             <Card>
               <CardHeader className="pb-3">
@@ -230,25 +232,25 @@ export default function ReceptionPage() {
                     Em Atendimento (Guichês)
                   </span>
                   <span className="text-sm font-normal bg-amber-100 text-amber-700 px-2 py-1 rounded">
-                    {baiaQueue.length}/5
+                    {guicheQueue.length}/9
                   </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {[1, 2, 3, 4, 5].map((baiaNum) => {
-                  const person = baiaQueue.find(p => p.assigned_baia === baiaNum);
-                  const timer = guicheTimers.find((item) => item.guiche_id === baiaNum);
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((guicheNum) => {
+                  const person = guicheQueue.find(p => p.assigned_guiche === guicheNum);
+                  const timer = guicheTimers.find((item) => item.guiche_number === guicheNum);
                   return (
                     <div
-                      key={baiaNum}
+                      key={guicheNum}
                       className={`p-4 rounded-lg border-2 ${
-                        person 
-                          ? 'border-amber-300 bg-amber-50' 
+                        person
+                          ? 'border-amber-300 bg-amber-50'
                           : 'border-slate-200 bg-slate-50'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold text-lg">Guichê {baiaNum}</span>
+                        <span className="font-bold text-lg">Guichê {guicheNum}</span>
                         {person && (
                           <span className="text-sm font-mono bg-amber-200 px-2 py-0.5 rounded">
                             {person.ticket_reception}
@@ -258,13 +260,13 @@ export default function ReceptionPage() {
                       {person ? (
                         <>
                           <p className="text-sm text-slate-600">{person.name}</p>
-                          <p className="text-xs text-slate-500 mt-1">Atendente: {timer?.user_name ?? 'Não identificado'}</p>
+                          <p className="text-xs text-slate-500 mt-1">Atendente: {timer?.assigned_user_name ?? 'Não identificado'}</p>
                           <p className="text-xs text-amber-700 font-semibold mt-2">
                             Tempo atual: {formatElapsed(timer?.elapsed_seconds ?? 0)}
                           </p>
                           <Button
                             size="sm"
-                            onClick={() => void completeBaia(person.id)}
+                            onClick={() => void completeGuiche(person.id)}
                             className="w-full bg-violet-600 hover:bg-violet-700 mt-3"
                             disabled={!currentUser}
                           >
@@ -281,6 +283,7 @@ export default function ReceptionPage() {
             </Card>
           </div>
 
+          {/* Coluna 3: Fila DP */}
           <div className="space-y-6">
             <Card>
               <CardHeader className="pb-3">

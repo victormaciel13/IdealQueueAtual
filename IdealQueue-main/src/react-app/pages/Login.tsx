@@ -36,7 +36,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const goByRole = (role: string) => {
-    if (role === 'reception' || role === 'admin') {
+    if (role === 'admin') {
+      navigate('/display');
+      return;
+    }
+
+    if (role === 'reception') {
       navigate('/');
       return;
     }
@@ -46,7 +51,7 @@ export default function LoginPage() {
       return;
     }
 
-    navigate('/');
+    navigate('/login');
   };
 
   const handleLogin = async (customUsername?: string, customPassword?: string) => {
