@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Person, QueueStats, GuicheTimer } from '@/shared/types';
-import { localQueueApi } from '@/react-app/lib/localQueue';
-
+import { supabaseQueueApi } from '@/react-app/lib/supabaseQueue';
+import { supabase } from '@/react-app/lib/supabaseClient';
 
 interface LastCalled {
   reception: (Person & { called_for: string })[];
@@ -10,11 +10,11 @@ interface LastCalled {
 
 export function useQueueDisplay() {
   const [receptionQueue, setReceptionQueue] = useState<Person[]>([]);
-  const [guicheQueue, setGuicheQueue] = useState<Person[]>([]);
-  const [dpQueue, setDpQueue] = useState<Person[]>([]);
-  const [guicheTimers, setGuicheTimers] = useState<GuicheTimer[]>([]);
-  const [lastCalled, setLastCalled] = useState<LastCalled>({ reception: [], dp: [] });
-  const [stats, setStats] = useState<QueueStats>({
+  const [guicheQueue,    setGuicheQueue]    = useState<Person[]>([]);
+  const [dpQueue,        setDpQueue]        = useState<Person[]>([]);
+  const [guicheTimers,   setGuicheTimers]   = useState<GuicheTimer[]>([]);
+  const [lastCalled,     setLastCalled]     = useState<LastCalled>({ reception: [], dp: [] });
+  const [stats,          setStats]          = useState<QueueStats>({
     total_waiting_reception: 0,
     total_in_guiche: 0,
     total_waiting_dp: 0,
@@ -24,60 +24,64 @@ export function useQueueDisplay() {
     normal_served_since_last_priority: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [useLocalMode, setUseLocalMode] = useState(true);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const loadLocalData = useCallback(() => {
-    setReceptionQueue(localQueueApi.getReception());
-    setGuicheQueue(localQueueApi.getGuiche());
-    setDpQueue(localQueueApi.getDp());
-    setGuicheTimers(localQueueApi.getGuicheTimers());
-    setStats(localQueueApi.getStats());
-    setLastCalled(localQueueApi.getLastCalled());
-  }, []);
-
-  const fetchData = useCallback(async () => {
-    if (useLocalMode) {
-      loadLocalData();
-      setLoading(false);
-      return;
-    }
-
+  const loadAll = useCallback(async () => {
     try {
-      const [receptionRes, guicheRes, dpRes, statsRes, lastCalledRes] = await Promise.all([
-        fetch('/api/queue/reception'),
-        fetch('/api/queue/guiche'),
-        fetch('/api/queue/dp'),
-        fetch('/api/queue/stats'),
-        fetch('/api/queue/last-called'),
+      const [reception, guiche, dp, statsData, timers, lastCalledData] = await Promise.all([
+        supabaseQueueApi.getReception(),
+        supabaseQueueApi.getGuiche(),
+        supabaseQueueApi.getDp(),
+        supabaseQueueApi.getStats(),
+        supabaseQueueApi.getGuicheTimers(),
+        supabaseQueueApi.getLastCalled(),
       ]);
 
-      const responses = [receptionRes, guicheRes, dpRes, statsRes, lastCalledRes];
-      if (responses.some((res) => !res.ok)) {
-        throw new Error('API indisponível');
-      }
-
-      setReceptionQueue(await receptionRes.json());
-      setGuicheQueue(await guicheRes.json());
-      setDpQueue(await dpRes.json());
-      setGuicheTimers(localQueueApi.getGuicheTimers());
-      setStats(await statsRes.json());
-      setLastCalled(await lastCalledRes.json());
+      setReceptionQueue(reception);
+      setGuicheQueue(guiche);
+      setDpQueue(dp);
+      setStats(statsData);
+      setGuicheTimers(timers);
+      setLastCalled(lastCalledData);
     } catch (err) {
-      console.warn('API não disponível, usando modo local:', err);
-      setUseLocalMode(true);
-      loadLocalData();
+      console.error('Erro ao carregar display:', err);
     } finally {
       setLoading(false);
     }
-  }, [loadLocalData, useLocalMode]);
+  }, []);
+
+  const tickTimers = useCallback(() => {
+    setGuicheTimers(prev =>
+      prev.map(t => ({
+        ...t,
+        elapsed_seconds: Math.max(
+          0,
+          Math.floor((Date.now() - new Date(t.started_at).getTime()) / 1000),
+        ),
+      })),
+    );
+  }, []);
 
   useEffect(() => {
-    void fetchData();
-    const interval = setInterval(() => {
-      void fetchData();
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    void loadAll();
+
+    const channel = supabase
+      .channel('display-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'persons' }, () => {
+        void loadAll();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_settings' }, () => {
+        void loadAll();
+      })
+      .subscribe();
+
+    timerRef.current = setInterval(tickTimers, 1000);
+
+    return () => {
+      void supabase.removeChannel(channel);
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [loadAll, tickTimers]);
 
   return {
     receptionQueue,
@@ -87,7 +91,6 @@ export function useQueueDisplay() {
     lastCalled,
     stats,
     loading,
-    refresh: fetchData,
-    useLocalMode,
+    refresh: loadAll,
   };
 }
