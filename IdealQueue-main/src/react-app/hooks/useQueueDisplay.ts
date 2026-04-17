@@ -24,7 +24,9 @@ export function useQueueDisplay() {
     normal_served_since_last_priority: 0,
   });
   const [loading, setLoading] = useState(true);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const loadAll = useCallback(async () => {
     try {
@@ -65,21 +67,24 @@ export function useQueueDisplay() {
   useEffect(() => {
     void loadAll();
 
-    const channel = supabase
-      .channel('display-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'persons' }, () => {
-        void loadAll();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_settings' }, () => {
-        void loadAll();
-      })
-      .subscribe();
+    if (!channelRef.current) {
+      const ch = supabase.channel('display-changes');
+      ch.on('postgres_changes' as any, { event: '*', schema: 'public', table: 'persons' },       () => { void loadAll(); });
+      ch.on('postgres_changes' as any, { event: '*', schema: 'public', table: 'queue_settings' }, () => { void loadAll(); });
+      ch.subscribe();
+      channelRef.current = ch;
+    }
 
     timerRef.current = setInterval(tickTimers, 1000);
 
     return () => {
-      void supabase.removeChannel(channel);
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (channelRef.current) {
+        void supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
     };
   }, [loadAll, tickTimers]);
 
