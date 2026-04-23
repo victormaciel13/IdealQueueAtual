@@ -22,27 +22,13 @@ export function useQueue() {
     supabaseQueueApi.getCurrentUser()
   );
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [useLocalMode, setUseLocalMode] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
 
-  const loadLocalData = useCallback(() => {
-    setReceptionQueue(localQueueApi.getReception());
-    setGuicheQueue(localQueueApi.getGuiche());
-    setDpQueue(localQueueApi.getDp());
-    setStats(localQueueApi.getStats());
-    setAvailableGuiches(localQueueApi.getGuiches().available);
-    setCurrentUser(localQueueApi.getCurrentUser());
-    setGuicheTimers(localQueueApi.getGuicheTimers());
-    setError(null);
-  }, []);
+  const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mountedRef = useRef(false);
 
-  const fetchQueue = useCallback(async () => {
-    if (useLocalMode) {
-      loadLocalData();
-      setLoading(false);
-      return;
-    }
-
+  const loadAll = useCallback(async () => {
     try {
       const [reception, guiche, dp, statsData, guichesData, timers] = await Promise.all([
         supabaseQueueApi.getReception(),
@@ -81,14 +67,26 @@ export function useQueue() {
   }, []);
 
   useEffect(() => {
-    void fetchQueue();
+    // Evita dupla execução no React StrictMode
+    if (mountedRef.current) return;
+    mountedRef.current = true;
 
-    const interval = setInterval(() => {
-      void fetchQueue();
-    }, 1000);
+    void loadAll();
 
-    return () => clearInterval(interval);
-  }, [fetchQueue]);
+    // Polling a cada 3s — garante atualização mesmo sem Realtime
+    pollRef.current = setInterval(() => { void loadAll(); }, 3000);
+
+    // Tick dos cronômetros local a cada 1s
+    timerRef.current = setInterval(tickTimers, 1000);
+
+    return () => {
+      if (pollRef.current)  clearInterval(pollRef.current);
+      if (timerRef.current) clearInterval(timerRef.current);
+      mountedRef.current = false;
+    };
+  }, [loadAll, tickTimers]);
+
+  // ── actions ───────────────────────────────────────────────────────────────
 
   const login = async (username: string, password: string): Promise<LoginResult> => {
     setError(null);
@@ -111,23 +109,8 @@ export function useQueue() {
     name: string; rg: string; is_pregnant: boolean; has_infant: boolean;
   }) => {
     try {
-      if (useLocalMode) {
-        localQueueApi.addPerson(data);
-        loadLocalData();
-        return true;
-      }
-
-      const res = await fetch(API_BASE, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      if (!res.ok) {
-        throw new Error('Erro ao adicionar pessoa');
-      }
-
-      await fetchQueue();
+      await supabaseQueueApi.addPerson(data);
+      await loadAll();
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao adicionar pessoa');
