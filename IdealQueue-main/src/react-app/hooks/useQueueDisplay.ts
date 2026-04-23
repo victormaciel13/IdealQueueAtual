@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Person, QueueStats, GuicheTimer } from '@/shared/types';
 import { supabaseQueueApi } from '@/react-app/lib/supabaseQueue';
-import { supabase } from '@/react-app/lib/supabaseClient';
 
 interface LastCalled {
   reception: (Person & { called_for: string })[];
@@ -24,7 +23,10 @@ export function useQueueDisplay() {
     normal_served_since_last_priority: 0,
   });
   const [loading, setLoading] = useState(true);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mountedRef = useRef(false);
 
   const loadAll = useCallback(async () => {
     try {
@@ -63,23 +65,21 @@ export function useQueueDisplay() {
   }, []);
 
   useEffect(() => {
+    if (mountedRef.current) return;
+    mountedRef.current = true;
+
     void loadAll();
 
-    const channel = supabase
-      .channel('display-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'persons' }, () => {
-        void loadAll();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_settings' }, () => {
-        void loadAll();
-      })
-      .subscribe();
+    // Polling a cada 3s
+    pollRef.current = setInterval(() => { void loadAll(); }, 3000);
 
+    // Tick dos cronômetros local a cada 1s
     timerRef.current = setInterval(tickTimers, 1000);
 
     return () => {
-      void supabase.removeChannel(channel);
+      if (pollRef.current)  clearInterval(pollRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
+      mountedRef.current = false;
     };
   }, [loadAll, tickTimers]);
 
