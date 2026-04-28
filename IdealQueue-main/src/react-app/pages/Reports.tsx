@@ -103,11 +103,11 @@ export default function ReceptionPage() {
           <div className="flex items-center gap-4">
             <img
               src={LOGO_URL}
-              alt="IdealQueue"
+              alt="IdealFila"
               className="h-12 w-12 rounded-2xl object-cover"
             />
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">IdealQueue</h1>
+              <h1 className="text-2xl font-bold text-slate-900">IdealFila</h1>
               <p className="text-sm text-slate-500">
                 Painel da recepção — {currentUser.name}
               </p>

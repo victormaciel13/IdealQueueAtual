@@ -129,7 +129,7 @@ export default function GuichePage() {
           <div className="flex items-center gap-4">
             <img
               src={LOGO_URL}
-              alt="IdealQueue"
+              alt="IdealFila"
               className="h-12 w-12 rounded-2xl object-cover"
             />
             <div>

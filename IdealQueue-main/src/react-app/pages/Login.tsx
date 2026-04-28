@@ -78,12 +78,12 @@ export default function LoginPage() {
               <div className="mb-4 flex items-center gap-4">
                 <img
                   src={LOGO_URL}
-                  alt="IdealQueue"
+                  alt="IdealFila"
                   className="h-14 w-14 rounded-2xl object-cover"
                 />
                 <div>
                   <CardTitle className="text-2xl text-slate-900">
-                    IdealQueue
+                    IdealFila
                   </CardTitle>
                   <p className="text-sm text-slate-500">
                     Sistema de atendimento com recepção, guichês e DP

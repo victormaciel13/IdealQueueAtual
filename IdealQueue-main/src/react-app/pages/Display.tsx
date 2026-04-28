@@ -52,9 +52,9 @@ export default function DisplayPage() {
       {/* ── HEADER ── */}
       <header className="flex items-center justify-between px-10 py-4 bg-slate-900 border-b border-slate-700/60">
         <div className="flex items-center gap-4">
-          <img src={LOGO_URL} alt="IdealQueue" className="h-12 w-auto" />
+          <img src={LOGO_URL} alt="IdealFila" className="h-12 w-auto" />
           <div>
-            <div className="text-2xl font-bold">IdealQueue</div>
+            <div className="text-2xl font-bold">IdealFila</div>
             <div className="text-slate-400 text-sm">Painel de Atendimento</div>
           </div>
         </div>
