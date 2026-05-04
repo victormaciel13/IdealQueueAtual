@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useQueueDisplay } from '@/react-app/hooks/useQueueDisplay';
 import { Heart, Baby } from 'lucide-react';
 
@@ -6,31 +6,48 @@ const LOGO_URL = 'https://019cbac0-d37d-7fe6-9252-d88c892cf697.mochausercontent.
 
 function getCurrentTime() {
   return new Date().toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
   });
 }
 
 export default function DisplayPage() {
   const { receptionQueue, lastCalled, dpQueue, loading } = useQueueDisplay();
-  const [time, setTime] = useState(getCurrentTime());
+  const [time, setTime]           = useState(getCurrentTime());
+  const [activeIndex, setActiveIndex] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Fonte grande
   useEffect(() => {
     const link = document.createElement('link');
-    link.href =
-      'https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&display=swap';
+    link.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&display=swap';
     link.rel = 'stylesheet';
     document.head.appendChild(link);
-    return () => {
-      document.head.removeChild(link);
-    };
+    return () => { document.head.removeChild(link); };
   }, []);
 
+  // Relógio
   useEffect(() => {
-    const interval = setInterval(() => setTime(getCurrentTime()), 1000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => setTime(getCurrentTime()), 1000);
+    return () => clearInterval(id);
   }, []);
+
+  // Rotaciona entre as chamadas recentes a cada 4 segundos
+  const chamadas = lastCalled.reception;
+  useEffect(() => {
+    if (chamadas.length <= 1) { setActiveIndex(0); return; }
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      setActiveIndex(prev => (prev + 1) % chamadas.length);
+    }, 4000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [chamadas.length]);
+
+  // Reseta para 0 quando chega nova chamada
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [chamadas.length]);
 
   if (loading) {
     return (
@@ -40,8 +57,7 @@ export default function DisplayPage() {
     );
   }
 
-  const ultimaChamada = lastCalled.reception[0] ?? null;
-  const historicoGuiche = lastCalled.reception.slice(1, 6);
+  const chamadaAtiva   = chamadas[activeIndex] ?? null;
   const ultimaChamadaDP = lastCalled.dp[0] ?? null;
 
   return (
@@ -64,43 +80,60 @@ export default function DisplayPage() {
       {/* ── CORPO ── */}
       <main className="flex-1 grid grid-cols-3 divide-x divide-slate-700/60">
 
-        {/* ══ COLUNA ESQUERDA — Chamada principal ══ */}
+        {/* ══ COLUNA ESQUERDA — Chamada em destaque ══ */}
         <div className="col-span-2 flex flex-col divide-y divide-slate-700/60">
 
-          {/* Destaque: quem foi chamado agora */}
+          {/* Chamada principal — rotativa */}
           <div className="flex-1 flex flex-col items-center justify-center px-16 py-12 bg-gradient-to-b from-slate-900 to-slate-950">
+
+            {/* Indicadores de página (bolinhas) */}
+            {chamadas.length > 1 && (
+              <div className="flex gap-2 mb-8">
+                {chamadas.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-full transition-all duration-500 ${
+                      i === activeIndex
+                        ? 'w-6 h-3 bg-emerald-400'
+                        : 'w-3 h-3 bg-slate-600'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+
             <p className="text-slate-400 text-base font-semibold uppercase tracking-[0.25em] mb-8">
-              Chamando agora
+              {chamadas.length > 1
+                ? `Chamada ${activeIndex + 1} de ${chamadas.length}`
+                : 'Chamando agora'}
             </p>
 
-            {ultimaChamada ? (
+            {chamadaAtiva ? (
               <div className="text-center w-full">
-                {/* Nome grande */}
+                {/* Nome em destaque — fonte máxima para TV */}
                 <div
-                  className="font-black text-white leading-tight mb-8"
-                  style={{ fontSize: 'clamp(3rem, 7vw, 6rem)' }}
+                  className="font-black text-white leading-none mb-10 tracking-tight"
+                  style={{ fontSize: 'clamp(4rem, 9vw, 8rem)' }}
                 >
-                  {ultimaChamada.name}
+                  {chamadaAtiva.name}
                 </div>
 
-                {/* Badge do guichê */}
-                <div className="inline-flex items-center gap-5 bg-emerald-500 rounded-3xl px-12 py-6 shadow-2xl shadow-emerald-900/60">
-                  <span className="text-white font-bold text-3xl">Guichê</span>
-                  <span className="text-white font-black leading-none" style={{ fontSize: '5rem' }}>
-                    {ultimaChamada.assigned_guiche}
+                {/* Badge guichê */}
+                <div className="inline-flex items-center gap-5 bg-emerald-500 rounded-3xl px-14 py-7 shadow-2xl shadow-emerald-900/60">
+                  <span className="text-white font-bold" style={{ fontSize: '2.5rem' }}>Guichê</span>
+                  <span className="text-white font-black leading-none" style={{ fontSize: '6rem' }}>
+                    {chamadaAtiva.assigned_guiche}
                   </span>
                 </div>
 
-                {/* Senha */}
-                <p className="mt-6 text-slate-400 text-xl font-mono tracking-widest">
-                  Senha {ultimaChamada.ticket_reception}
-                  {ultimaChamada.priority === 'priority' && (
-                    <span className="ml-3 inline-flex items-center gap-1 text-pink-400 text-base">
-                      {ultimaChamada.is_pregnant ? (
-                        <><Heart className="w-4 h-4" /> Gestante</>
-                      ) : (
-                        <><Baby className="w-4 h-4" /> Criança de colo</>
-                      )}
+                {/* Senha + prioridade */}
+                <p className="mt-6 text-slate-400 text-2xl font-mono tracking-widest">
+                  Senha {chamadaAtiva.ticket_reception}
+                  {chamadaAtiva.priority === 'priority' && (
+                    <span className="ml-4 inline-flex items-center gap-1 text-pink-400 text-xl">
+                      {chamadaAtiva.is_pregnant
+                        ? <><Heart className="w-5 h-5" /> Gestante</>
+                        : <><Baby className="w-5 h-5" /> Criança de colo</>}
                     </span>
                   )}
                 </p>
@@ -113,25 +146,26 @@ export default function DisplayPage() {
             )}
           </div>
 
-          {/* Histórico de chamadas anteriores para guichê */}
-          {historicoGuiche.length > 0 && (
+          {/* Grid de todas as chamadas recentes */}
+          {chamadas.length > 1 && (
             <div className="px-10 py-5 bg-slate-900/50">
               <p className="text-slate-500 text-xs font-semibold uppercase tracking-widest mb-3">
-                Chamadas anteriores
+                Todas as chamadas recentes
               </p>
-              <div className="flex gap-3">
-                {historicoGuiche.map((person) => (
+              <div className="grid grid-cols-4 gap-3">
+                {chamadas.map((person, i) => (
                   <div
                     key={person.id}
-                    className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-3"
+                    className={`rounded-xl px-4 py-3 cursor-pointer transition-all ${
+                      i === activeIndex
+                        ? 'bg-emerald-500/20 border-2 border-emerald-500/60'
+                        : 'bg-white/5 border border-white/10'
+                    }`}
+                    onClick={() => setActiveIndex(i)}
                   >
-                    <div className="text-xs text-slate-500 font-mono mb-1">
-                      {person.ticket_reception}
-                    </div>
-                    <div className="text-sm font-semibold text-slate-200 truncate">
-                      {person.name}
-                    </div>
-                    <div className="text-xs text-emerald-400 font-bold mt-1">
+                    <div className="text-xs text-slate-400 font-mono mb-1">{person.ticket_reception}</div>
+                    <div className="text-sm font-bold text-white leading-tight truncate">{person.name}</div>
+                    <div className={`text-xs font-bold mt-1 ${i === activeIndex ? 'text-emerald-400' : 'text-slate-500'}`}>
                       Guichê {person.assigned_guiche}
                     </div>
                   </div>
@@ -147,19 +181,19 @@ export default function DisplayPage() {
                 Última chamada — DP
               </p>
               <div className="flex items-center gap-4">
-                <span className="font-mono text-violet-300 font-bold text-lg">
+                <span className="font-mono text-violet-300 font-bold text-xl">
                   {ultimaChamadaDP.ticket_dp}
                 </span>
-                <span className="text-white font-semibold text-lg">{ultimaChamadaDP.name}</span>
+                <span className="text-white font-bold text-xl">{ultimaChamadaDP.name}</span>
               </div>
             </div>
           )}
         </div>
 
-        {/* ══ COLUNA DIREITA — Fila de espera na recepção ══ */}
+        {/* ══ COLUNA DIREITA ══ */}
         <div className="flex flex-col divide-y divide-slate-700/60 bg-slate-900/30">
 
-          {/* Fila aguardando recepção */}
+          {/* Fila aguardando */}
           <div className="flex-1 px-7 py-6 overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <p className="text-slate-400 text-xs font-semibold uppercase tracking-widest">
@@ -171,9 +205,7 @@ export default function DisplayPage() {
             </div>
 
             {receptionQueue.length === 0 ? (
-              <div className="text-slate-600 text-sm text-center mt-8">
-                Nenhum candidato na fila.
-              </div>
+              <div className="text-slate-600 text-sm text-center mt-8">Nenhum candidato na fila.</div>
             ) : (
               <div className="space-y-2">
                 {receptionQueue.map((person, i) => (
@@ -223,9 +255,7 @@ export default function DisplayPage() {
             </div>
 
             {dpQueue.length === 0 ? (
-              <div className="text-slate-600 text-sm text-center">
-                Nenhum candidato aguardando.
-              </div>
+              <div className="text-slate-600 text-sm text-center">Nenhum candidato aguardando.</div>
             ) : (
               <div className="space-y-2">
                 {dpQueue.slice(0, 5).map((person, i) => (

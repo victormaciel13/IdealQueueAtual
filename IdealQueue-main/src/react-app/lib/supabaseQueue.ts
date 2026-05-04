@@ -115,7 +115,7 @@ export const supabaseQueueApi = {
     const { data } = await supabase
       .from('persons')
       .select('*')
-      .eq('stage', 'guiche')
+      .in('stage', ['pending', 'guiche'])
       .order('assigned_guiche', { ascending: true });
     return (data ?? []) as Person[];
   },
@@ -132,13 +132,13 @@ export const supabaseQueueApi = {
     const { data } = await supabase
       .from('persons')
       .select('*')
-      .in('stage', ['reception', 'guiche', 'dp']);
+      .in('stage', ['reception', 'pending', 'guiche', 'dp']);
 
     const persons = (data ?? []) as Person[];
     const settings = await getSettings();
 
     const reception = persons.filter(p => p.stage === 'reception');
-    const guiche    = persons.filter(p => p.stage === 'guiche');
+    const guiche    = persons.filter(p => p.stage === 'guiche' || (p.stage as string) === 'pending');
     const dp        = persons.filter(p => p.stage === 'dp');
 
     const waitedMinutes = persons.map(p => {
@@ -166,7 +166,7 @@ export const supabaseQueueApi = {
     const { data } = await supabase
       .from('persons')
       .select('assigned_guiche')
-      .eq('stage', 'guiche');
+      .in('stage', ['guiche', 'pending']);
 
     const occupied = new Set(
       ((data ?? []) as { assigned_guiche: number | null }[])
@@ -209,7 +209,7 @@ export const supabaseQueueApi = {
     const { data: recData } = await supabase
       .from('persons')
       .select('*')
-      .eq('stage', 'guiche')
+      .in('stage', ['pending', 'guiche'])
       .not('called_reception_at', 'is', null)
       .order('called_reception_at', { ascending: false })
       .limit(5);
@@ -340,7 +340,7 @@ export const supabaseQueueApi = {
     const { data: occupied } = await supabase
       .from('persons')
       .select('id')
-      .eq('stage', 'guiche')
+      .in('stage', ['guiche', 'pending'])
       .eq('assigned_guiche', guiche);
 
     if (occupied && occupied.length > 0) throw new Error('Guichê já está ocupado');
@@ -387,15 +387,15 @@ export const supabaseQueueApi = {
       }
     }
 
-    const startedAt = now();
+    const calledAt = now();
     const patch = {
-      stage:              'guiche',
+      stage:              'pending',
       assigned_guiche:    guiche,
       assigned_user_id:   assignedUserId,
       assigned_user_name: assignedUserName,
-      called_reception_at: startedAt,
-      started_at:         startedAt,
-      updated_at:         startedAt,
+      called_reception_at: calledAt,
+      started_at:         null,
+      updated_at:         calledAt,
     };
 
     const { data: updated, error } = await supabase
@@ -422,7 +422,7 @@ export const supabaseQueueApi = {
       .from('persons')
       .select('*')
       .eq('id', id)
-      .eq('stage', 'guiche')
+      .in('stage', ['guiche', 'pending'])
       .single();
 
     if (fetchError || !person) throw new Error('Pessoa não encontrada ou não está em atendimento');
@@ -477,6 +477,21 @@ export const supabaseQueueApi = {
     return updated as Person;
   },
 
+
+  async acceptGuiche(id: number): Promise<Person> {
+    const startedAt = now();
+    const { data: updated, error } = await supabase
+      .from('persons')
+      .update({ stage: 'guiche', started_at: startedAt, updated_at: startedAt })
+      .eq('id', id)
+      .eq('stage', 'pending')
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return updated as Person;
+  },
+
   async callForDP(): Promise<Person> {
     const dp = await this.getDp();
     if (dp.length === 0) throw new Error('Nenhuma pessoa aguardando DP');
@@ -506,12 +521,42 @@ export const supabaseQueueApi = {
     return { success: true };
   },
 
+
+
+
+  async transferGuiche(id: number, newGuiche: number): Promise<Person> {
+    // Verifica se o guichê destino está livre
+    const { data: occupied } = await supabase
+      .from('persons')
+      .select('id')
+      .in('stage', ['guiche', 'pending'])
+      .eq('assigned_guiche', newGuiche);
+
+    if (occupied && occupied.length > 0) throw new Error('Guichê destino está ocupado');
+
+    const ts = now();
+    const { data: updated, error } = await supabase
+      .from('persons')
+      .update({
+        stage:           'pending',
+        assigned_guiche: newGuiche,
+        started_at:      null,
+        updated_at:      ts,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return updated as Person;
+  },
+
   async resetQueue(): Promise<{ success: boolean }> {
     const ts = now();
     await supabase
       .from('persons')
       .update({ stage: 'completed', completed_at: ts, updated_at: ts })
-      .in('stage', ['reception', 'guiche', 'dp']);
+      .in('stage', ['reception', 'pending', 'guiche', 'dp']);
 
     await updateSettings({
       normal_served_count: 0,

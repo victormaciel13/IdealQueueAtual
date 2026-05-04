@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Person, QueueStats, User, LoginResult, GuicheTimer } from '@/shared/types';
 import { supabaseQueueApi } from '@/react-app/lib/supabaseQueue';
-import { supabase } from '@/react-app/lib/supabaseClient';
 
 export function useQueue() {
   const [receptionQueue,   setReceptionQueue]   = useState<Person[]>([]);
@@ -118,6 +117,29 @@ export function useQueue() {
     }
   };
 
+
+  const acceptGuiche = async (id: number) => {
+    try {
+      const person = await supabaseQueueApi.acceptGuiche(id);
+      await loadAll();
+      return person;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao aceitar candidato');
+      return null;
+    }
+  };
+
+  const transferGuiche = async (id: number, newGuiche: number) => {
+    try {
+      const person = await supabaseQueueApi.transferGuiche(id, newGuiche);
+      await loadAll();
+      return person;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao transferir candidato');
+      return null;
+    }
+  };
+
   const callForReception = async (guiche: number) => {
     try {
       if (!currentUser) { setError('Faça login para chamar um candidato'); return null; }
@@ -141,6 +163,7 @@ export function useQueue() {
       return false;
     }
   };
+
 
   const callForDP = async () => {
     try {
@@ -192,6 +215,8 @@ export function useQueue() {
     login,
     logout,
     addPerson,
+    acceptGuiche,
+    transferGuiche,
     callForReception,
     completeGuiche,
     callForDP,
