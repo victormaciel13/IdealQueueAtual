@@ -55,7 +55,7 @@ export default function GuichePage() {
   } = useQueue();
 
   const [pendingPerson, setPendingPerson] = useState<{
-    id: number; name: string; ticket: string; rg: string;
+    id: number; name: string; ticket: string; cpf: string;
   } | null>(null);
 
   const [showTransfer, setShowTransfer] = useState(false);
@@ -78,7 +78,7 @@ export default function GuichePage() {
         id: myPending.id,
         name: myPending.name,
         ticket: myPending.ticket_reception,
-        rg: myPending.rg,
+        cpf: myPending.cpf,
       });
       try {
         if (!audioRef.current) {
@@ -174,7 +174,7 @@ export default function GuichePage() {
             <div className="mb-6 rounded-2xl bg-slate-50 p-5">
               <div className="mb-1 text-sm font-semibold text-blue-600">{pendingPerson.ticket}</div>
               <div className="text-2xl font-bold text-slate-900">{pendingPerson.name}</div>
-              <div className="mt-1 text-sm text-slate-500">RG: {pendingPerson.rg}</div>
+              <div className="mt-1 text-sm text-slate-500">CPF: {pendingPerson.cpf}</div>
             </div>
             <Button
               className="h-14 w-full bg-emerald-600 text-lg hover:bg-emerald-700"
@@ -279,8 +279,8 @@ export default function GuichePage() {
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="rounded-xl bg-white px-4 py-3">
-                        <div className="text-xs uppercase tracking-wide text-slate-500">RG</div>
-                        <div className="font-medium text-slate-900">{currentAttendance.rg}</div>
+                        <div className="text-xs uppercase tracking-wide text-slate-500">CPF</div>
+                        <div className="font-medium text-slate-900">{currentAttendance.cpf}</div>
                       </div>
                       <div className="rounded-xl bg-white px-4 py-3">
                         <div className="text-xs uppercase tracking-wide text-slate-500">
@@ -358,7 +358,7 @@ export default function GuichePage() {
                       {person.ticket_reception}
                     </div>
                     <div className="font-medium text-slate-900">{person.name}</div>
-                    <div className="text-sm text-slate-500">{person.rg}</div>
+                    <div className="text-sm text-slate-500">{person.cpf}</div>
                   </div>
                 ))
               )}

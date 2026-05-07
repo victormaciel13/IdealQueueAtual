@@ -288,7 +288,7 @@ function PersonCard({ person }: { person: Person }) {
       <div className="text-base font-semibold text-slate-900">
         {person.name}
       </div>
-      <div className="mt-1 text-sm text-slate-500">RG: {person.rg}</div>
+      <div className="mt-1 text-sm text-slate-500">CPF: {person.cpf}</div>
       <div className="mt-1 text-xs text-slate-400">
         Entrada: {new Date(person.check_in_time).toLocaleString('pt-BR')}
       </div>

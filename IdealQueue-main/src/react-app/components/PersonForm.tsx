@@ -9,7 +9,7 @@ import { UserPlus, Heart, Baby } from 'lucide-react';
 interface PersonFormProps {
   onSubmit: (data: {
     name: string;
-    rg: string;
+    cpf: string;
     is_pregnant: boolean;
     has_infant: boolean;
   }) => Promise<boolean>;
@@ -17,26 +17,26 @@ interface PersonFormProps {
 
 export function PersonForm({ onSubmit }: PersonFormProps) {
   const [name, setName] = useState('');
-  const [rg, setRg] = useState('');
+  const [cpf, setCpf] = useState('');
   const [isPregnant, setIsPregnant] = useState(false);
   const [hasInfant, setHasInfant] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !rg.trim()) return;
+    if (!name.trim() || !cpf.trim()) return;
 
     setSubmitting(true);
     const success = await onSubmit({
       name: name.trim(),
-      rg: rg.trim(),
+      cpf: cpf.trim(),
       is_pregnant: isPregnant,
       has_infant: hasInfant
     });
 
     if (success) {
       setName('');
-      setRg('');
+      setCpf('');
       setIsPregnant(false);
       setHasInfant(false);
     }
@@ -75,12 +75,12 @@ export function PersonForm({ onSubmit }: PersonFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="rg">RG</Label>
+            <Label htmlFor="cpf">CPF</Label>
             <Input
-              id="rg"
-              value={rg}
-              onChange={(e) => setRg(formatRG(e.target.value))}
-              placeholder="00.000.000-0"
+              id="cpf"
+              value={cpf}
+              onChange={(e) => setCpf(formatRG(e.target.value))}
+              placeholder="000.000.000-00"
               maxLength={12}
               required
             />

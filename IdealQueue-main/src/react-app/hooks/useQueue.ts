@@ -105,7 +105,7 @@ export function useQueue() {
   };
 
   const addPerson = async (data: {
-    name: string; rg: string; is_pregnant: boolean; has_infant: boolean;
+    name: string; cpf: string; is_pregnant: boolean; has_infant: boolean;
   }) => {
     try {
       await supabaseQueueApi.addPerson(data);
