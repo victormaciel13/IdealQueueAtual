@@ -1,6 +1,6 @@
 export type PersonPriority = 'priority' | 'normal';
 
-export type QueueStage = 'reception' | 'guiche' | 'dp' | 'completed';
+export type QueueStage = 'reception' | 'pending' | 'guiche' | 'dp' | 'completed';
 
 export type UserRole =
   | 'reception'
@@ -30,7 +30,7 @@ export interface User {
 export interface Person {
   id: number;
   name: string;
-  rg: string;
+  cpf: string;
   is_pregnant: number;
   has_infant: number;
   priority: PersonPriority;
@@ -109,6 +109,7 @@ export const PRIORITY_LABELS: Record<PersonPriority, string> = {
 
 export const STAGE_LABELS: Record<QueueStage, string> = {
   reception: 'Aguardando recepção',
+  pending: 'Aguardando aceite no guichê',
   guiche: 'Em atendimento no guichê',
   dp: 'Aguardando DP',
   completed: 'Atendimento concluído',

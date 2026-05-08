@@ -4,12 +4,12 @@ import { Input } from '@/react-app/components/ui/input';
 import { Label } from '@/react-app/components/ui/label';
 import { Checkbox } from '@/react-app/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/react-app/components/ui/card';
-import { UserPlus, Heart, Baby } from 'lucide-react';
+import { UserPlus, Baby } from 'lucide-react';
 
 interface PersonFormProps {
   onSubmit: (data: {
     name: string;
-    rg: string;
+    cpf: string;
     is_pregnant: boolean;
     has_infant: boolean;
   }) => Promise<boolean>;
@@ -17,27 +17,25 @@ interface PersonFormProps {
 
 export function PersonForm({ onSubmit }: PersonFormProps) {
   const [name, setName] = useState('');
-  const [rg, setRg] = useState('');
-  const [isPregnant, setIsPregnant] = useState(false);
+  const [cpf, setCpf] = useState('');
   const [hasInfant, setHasInfant] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !rg.trim()) return;
+    if (!name.trim() || !cpf.trim()) return;
 
     setSubmitting(true);
     const success = await onSubmit({
       name: name.trim(),
-      rg: rg.trim(),
-      is_pregnant: isPregnant,
+      cpf: cpf.trim(),
+      is_pregnant: false,
       has_infant: hasInfant
     });
 
     if (success) {
       setName('');
-      setRg('');
-      setIsPregnant(false);
+      setCpf('');
       setHasInfant(false);
     }
     setSubmitting(false);
@@ -75,12 +73,12 @@ export function PersonForm({ onSubmit }: PersonFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="rg">RG</Label>
+            <Label htmlFor="cpf">CPF</Label>
             <Input
-              id="rg"
-              value={rg}
-              onChange={(e) => setRg(formatRG(e.target.value))}
-              placeholder="00.000.000-0"
+              id="cpf"
+              value={cpf}
+              onChange={(e) => setCpf(formatRG(e.target.value))}
+              placeholder="000.000.000-00"
               maxLength={12}
               required
             />
@@ -91,28 +89,12 @@ export function PersonForm({ onSubmit }: PersonFormProps) {
               Prioridade (opcional)
             </Label>
             
-            <div className="flex items-center space-x-3 p-3 rounded-lg bg-pink-50 border border-pink-200">
-              <Checkbox
-                id="pregnant"
-                checked={isPregnant}
-                onCheckedChange={(checked) => {
-                  setIsPregnant(checked === true);
-                  if (checked) setHasInfant(false);
-                }}
-              />
-              <Label htmlFor="pregnant" className="flex items-center gap-2 cursor-pointer text-pink-700">
-                <Heart className="w-4 h-4" />
-                Gestante
-              </Label>
-            </div>
-
             <div className="flex items-center space-x-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
               <Checkbox
                 id="infant"
                 checked={hasInfant}
                 onCheckedChange={(checked) => {
                   setHasInfant(checked === true);
-                  if (checked) setIsPregnant(false);
                 }}
               />
               <Label htmlFor="infant" className="flex items-center gap-2 cursor-pointer text-blue-700">
