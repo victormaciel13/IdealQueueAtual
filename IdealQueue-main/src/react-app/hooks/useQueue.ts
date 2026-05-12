@@ -140,6 +140,17 @@ export function useQueue() {
     }
   };
 
+  const acceptDP = async (id: number) => {
+    try {
+      const person = await supabaseQueueApi.acceptDP(id);
+      await loadAll();
+      return person;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao aceitar candidato no DP');
+      return null;
+    }
+  };
+
   const callForReception = async (guiche: number) => {
     try {
       if (!currentUser) { setError('Faça login para chamar um candidato'); return null; }
@@ -217,6 +228,7 @@ export function useQueue() {
     addPerson,
     acceptGuiche,
     transferGuiche,
+    acceptDP,
     callForReception,
     completeGuiche,
     callForDP,

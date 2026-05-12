@@ -1,6 +1,6 @@
 export type PersonPriority = 'priority' | 'normal';
 
-export type QueueStage = 'reception' | 'pending' | 'guiche' | 'dp' | 'completed';
+export type QueueStage = 'reception' | 'pending' | 'guiche' | 'dp_pending' | 'dp' | 'completed';
 
 export type UserRole =
   | 'reception'
@@ -13,6 +13,12 @@ export type UserRole =
   | 'guiche7'
   | 'guiche8'
   | 'guiche9'
+  | 'dp1'
+  | 'dp2'
+  | 'dp3'
+  | 'dp4'
+  | 'dp5'
+  | 'dp6'
   | 'admin';
 
 export interface User {
@@ -111,7 +117,8 @@ export const STAGE_LABELS: Record<QueueStage, string> = {
   reception: 'Aguardando recepção',
   pending: 'Aguardando aceite no guichê',
   guiche: 'Em atendimento no guichê',
-  dp: 'Aguardando DP',
+  dp_pending: 'Aguardando aceite no DP',
+  dp: 'Em atendimento no DP',
   completed: 'Atendimento concluído',
 };
 

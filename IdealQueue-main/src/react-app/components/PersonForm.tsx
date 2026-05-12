@@ -4,7 +4,7 @@ import { Input } from '@/react-app/components/ui/input';
 import { Label } from '@/react-app/components/ui/label';
 import { Checkbox } from '@/react-app/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/react-app/components/ui/card';
-import { UserPlus, Heart, Baby } from 'lucide-react';
+import { UserPlus, Baby } from 'lucide-react';
 
 interface PersonFormProps {
   onSubmit: (data: {
@@ -18,7 +18,6 @@ interface PersonFormProps {
 export function PersonForm({ onSubmit }: PersonFormProps) {
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
-  const [isPregnant, setIsPregnant] = useState(false);
   const [hasInfant, setHasInfant] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -30,25 +29,24 @@ export function PersonForm({ onSubmit }: PersonFormProps) {
     const success = await onSubmit({
       name: name.trim(),
       cpf: cpf.trim(),
-      is_pregnant: isPregnant,
+      is_pregnant: false,
       has_infant: hasInfant
     });
 
     if (success) {
       setName('');
       setCpf('');
-      setIsPregnant(false);
       setHasInfant(false);
     }
     setSubmitting(false);
   };
 
-  const formatRG = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
-    if (numbers.length <= 2) return numbers;
-    if (numbers.length <= 5) return `${numbers.slice(0, 2)}.${numbers.slice(2)}`;
-    if (numbers.length <= 8) return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(5)}`;
-    return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(5, 8)}-${numbers.slice(8, 9)}`;
+  const formatCPF = (value: string) => {
+    const numbers = value.replace(/\D/g, '').slice(0, 11);
+    if (numbers.length <= 3) return numbers;
+    if (numbers.length <= 6) return `${numbers.slice(0, 3)}.${numbers.slice(3)}`;
+    if (numbers.length <= 9) return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6)}`;
+    return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6, 9)}-${numbers.slice(9, 11)}`;
   };
 
   return (
@@ -79,9 +77,9 @@ export function PersonForm({ onSubmit }: PersonFormProps) {
             <Input
               id="cpf"
               value={cpf}
-              onChange={(e) => setCpf(formatRG(e.target.value))}
+              onChange={(e) => setCpf(formatCPF(e.target.value))}
               placeholder="000.000.000-00"
-              maxLength={12}
+              maxLength={14}
               required
             />
           </div>
@@ -91,28 +89,12 @@ export function PersonForm({ onSubmit }: PersonFormProps) {
               Prioridade (opcional)
             </Label>
             
-            <div className="flex items-center space-x-3 p-3 rounded-lg bg-pink-50 border border-pink-200">
-              <Checkbox
-                id="pregnant"
-                checked={isPregnant}
-                onCheckedChange={(checked) => {
-                  setIsPregnant(checked === true);
-                  if (checked) setHasInfant(false);
-                }}
-              />
-              <Label htmlFor="pregnant" className="flex items-center gap-2 cursor-pointer text-pink-700">
-                <Heart className="w-4 h-4" />
-                Gestante
-              </Label>
-            </div>
-
             <div className="flex items-center space-x-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
               <Checkbox
                 id="infant"
                 checked={hasInfant}
                 onCheckedChange={(checked) => {
                   setHasInfant(checked === true);
-                  if (checked) setIsPregnant(false);
                 }}
               />
               <Label htmlFor="infant" className="flex items-center gap-2 cursor-pointer text-blue-700">

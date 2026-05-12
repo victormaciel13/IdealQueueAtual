@@ -124,7 +124,7 @@ export const supabaseQueueApi = {
     const { data } = await supabase
       .from('persons')
       .select('*')
-      .eq('stage', 'dp');
+      .in('stage', ['dp_pending', 'dp']);
     return sortDp((data ?? []) as Person[]);
   },
 
@@ -139,7 +139,7 @@ export const supabaseQueueApi = {
 
     const reception = persons.filter(p => p.stage === 'reception');
     const guiche    = persons.filter(p => p.stage === 'guiche' || (p.stage as string) === 'pending');
-    const dp        = persons.filter(p => p.stage === 'dp');
+    const dp        = persons.filter(p => p.stage === 'dp' || (p.stage as string) === 'dp_pending');
 
     const waitedMinutes = persons.map(p => {
       const end   = p.called_reception_at ? new Date(p.called_reception_at).getTime() : Date.now();
@@ -443,7 +443,7 @@ export const supabaseQueueApi = {
     });
 
     const patch = {
-      stage:            'dp',
+      stage:            'dp_pending',
       ticket_dp:        `DP${String(newCounterDP).padStart(3, '0')}`,
       finished_at:      finishedAt,
       duration_seconds: durationSec,
@@ -542,6 +542,24 @@ export const supabaseQueueApi = {
         assigned_guiche: newGuiche,
         started_at:      null,
         updated_at:      ts,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return updated as Person;
+  },
+
+
+  async acceptDP(id: number): Promise<Person> {
+    const ts = now();
+    const { data: updated, error } = await supabase
+      .from('persons')
+      .update({
+        stage:       'dp',
+        called_dp_at: ts,
+        updated_at:  ts,
       })
       .eq('id', id)
       .select()
