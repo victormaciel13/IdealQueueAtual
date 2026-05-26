@@ -67,7 +67,6 @@ export default function ReceptionPage() {
     loading,
     error,
     addPerson,
-    logout,
     refresh,
   } = useQueue();
 
@@ -87,11 +86,7 @@ export default function ReceptionPage() {
     }
   }, [currentUser, loading, navigate]);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
+ 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100">
