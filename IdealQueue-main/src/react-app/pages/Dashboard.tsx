@@ -10,7 +10,7 @@ import {
   LogOut, RefreshCw, ChevronLeft, ChevronRight,
   Upload, FileSpreadsheet, X, Table,
 } from 'lucide-react';
-import { supabaseQueueApi } from '@/react-app/lib/supabaseQueue';
+import { supabaseQueueApi } from '@/react-app/lib/Supabasequeue';
 import { Button } from '@/react-app/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/react-app/components/ui/card';
 import type { AttendanceRecord } from '@/shared/types';
