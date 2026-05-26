@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { PersonForm } from '@/react-app/components/PersonForm';
 import { QueueStatsDisplay } from '@/react-app/components/QueueStatsDisplay';
 import { useQueue } from '@/react-app/hooks/useQueue';
-import { Monitor, RefreshCw, RotateCcw, Phone, CheckCircle, Heart, Baby, Users, LogIn, LogOut, BarChart3, Clock3 } from 'lucide-react';
+import { Monitor, RefreshCw, RotateCcw, Phone, CheckCircle, Heart, Baby, Users, LogIn, LogOut, Clock3 } from 'lucide-react';
 import { Button } from '@/react-app/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/react-app/components/ui/card';
 import type { Person } from '@/shared/types';
@@ -102,12 +102,6 @@ export default function ReceptionPage() {
               >
                 <RotateCcw className="w-4 h-4" />
               </Button>
-              <Link to="/reports">
-                <Button variant="outline" className="gap-2">
-                  <BarChart3 className="w-4 h-4" />
-                  Relatórios
-                </Button>
-              </Link>
               <Link to="/display">
                 <Button variant="outline" className="gap-2">
                   <Monitor className="w-4 h-4" />
@@ -170,7 +164,6 @@ export default function ReceptionPage() {
         </Card>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Coluna 1: Formulário + Fila Recepção */}
           <div className="space-y-6">
             <PersonForm onSubmit={addPerson} />
 
@@ -222,7 +215,6 @@ export default function ReceptionPage() {
             )}
           </div>
 
-          {/* Coluna 2: Em Atendimento nos Guichês */}
           <div>
             <Card>
               <CardHeader className="pb-3">
@@ -244,9 +236,7 @@ export default function ReceptionPage() {
                     <div
                       key={guicheNum}
                       className={`p-4 rounded-lg border-2 ${
-                        person
-                          ? 'border-amber-300 bg-amber-50'
-                          : 'border-slate-200 bg-slate-50'
+                        person ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -283,7 +273,6 @@ export default function ReceptionPage() {
             </Card>
           </div>
 
-          {/* Coluna 3: Fila DP */}
           <div className="space-y-6">
             <Card>
               <CardHeader className="pb-3">
