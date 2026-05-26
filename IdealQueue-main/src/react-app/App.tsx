@@ -4,7 +4,7 @@ import LoginPage from '@/react-app/pages/Login';
 import ReceptionPage from '@/react-app/pages/Reception';
 import GuichePage from '@/react-app/pages/Guiche';
 import DisplayPage from '@/react-app/pages/Display';
-import { useQueue } from '@/react-app/hooks/useQueue';
+import { supabaseQueueApi } from '@/react-app/lib/supabaseQueue';
 
 function ProtectedRoute({
   children,
@@ -13,9 +13,7 @@ function ProtectedRoute({
   children: React.ReactNode;
   allowed: string[];
 }) {
-  const { currentUser, loading } = useQueue();
-
-  if (loading) return null;
+  const currentUser = supabaseQueueApi.getCurrentUser();
 
   if (!currentUser) {
     return <Navigate to="/login" />;
@@ -57,15 +55,9 @@ export default function App() {
           element={
             <ProtectedRoute
               allowed={[
-                'guiche1',
-                'guiche2',
-                'guiche3',
-                'guiche4',
-                'guiche5',
-                'guiche6',
-                'guiche7',
-                'guiche8',
-                'guiche9',
+                'guiche1','guiche2','guiche3',
+                'guiche4','guiche5','guiche6',
+                'guiche7','guiche8','guiche9',
               ]}
             >
               <GuichePage />

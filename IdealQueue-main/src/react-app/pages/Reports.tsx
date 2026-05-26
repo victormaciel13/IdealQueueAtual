@@ -103,11 +103,11 @@ export default function ReceptionPage() {
           <div className="flex items-center gap-4">
             <img
               src={LOGO_URL}
-              alt="IdealQueue"
+              alt="IdealFila"
               className="h-12 w-12 rounded-2xl object-cover"
             />
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">IdealQueue</h1>
+              <h1 className="text-2xl font-bold text-slate-900">IdealFila</h1>
               <p className="text-sm text-slate-500">
                 Painel da recepção — {currentUser.name}
               </p>
@@ -288,7 +288,7 @@ function PersonCard({ person }: { person: Person }) {
       <div className="text-base font-semibold text-slate-900">
         {person.name}
       </div>
-      <div className="mt-1 text-sm text-slate-500">RG: {person.rg}</div>
+      <div className="mt-1 text-sm text-slate-500">CPF: {person.cpf}</div>
       <div className="mt-1 text-xs text-slate-400">
         Entrada: {new Date(person.check_in_time).toLocaleString('pt-BR')}
       </div>

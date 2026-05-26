@@ -62,9 +62,9 @@ export default function ReceptionPage() {
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <img src={LOGO_URL} alt="IdealQueue" className="h-10 w-auto" />
+              <img src={LOGO_URL} alt="IdealFila" className="h-10 w-auto" />
               <div>
-                <h1 className="text-xl font-bold text-slate-800">IdealQueue</h1>
+                <h1 className="text-xl font-bold text-slate-800">IdealFila</h1>
                 <p className="text-xs text-slate-500">Painel da Recepção</p>
               </div>
             </div>
