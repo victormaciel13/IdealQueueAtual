@@ -367,7 +367,7 @@ export const localQueueApi = {
 
   addPerson(data: {
     name: string;
-    rg: string;
+    cpf: string;
     is_pregnant: boolean;
     has_infant: boolean;
   }) {
@@ -384,7 +384,7 @@ export const localQueueApi = {
     const person: Person = {
       id,
       name: data.name,
-      rg: data.rg,
+      cpf: data.cpf,
       is_pregnant: data.is_pregnant ? 1 : 0,
       has_infant: data.has_infant ? 1 : 0,
       priority: data.is_pregnant || data.has_infant ? 'priority' : 'normal',

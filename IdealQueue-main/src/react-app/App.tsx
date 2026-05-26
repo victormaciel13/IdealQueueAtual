@@ -4,6 +4,9 @@ import LoginPage from '@/react-app/pages/Login';
 import ReceptionPage from '@/react-app/pages/Reception';
 import GuichePage from '@/react-app/pages/Guiche';
 import DisplayPage from '@/react-app/pages/Display';
+import DashboardPage from '@/react-app/pages/Dashboard';
+import ReportsPage from '@/react-app/pages/Reports';
+import ReportsLoginPage from '@/react-app/pages/ReportsLogin';
 import { supabaseQueueApi } from '@/react-app/lib/supabaseQueue';
 
 function ProtectedRoute({
@@ -21,7 +24,7 @@ function ProtectedRoute({
 
   if (!allowed.includes(currentUser.role)) {
     if (currentUser.role === 'admin') {
-      return <Navigate to="/display" />;
+      return <Navigate to="/dashboard" />;
     }
     if (currentUser.role.startsWith('guiche')) {
       return <Navigate to="/guiche" />;
@@ -74,6 +77,22 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* DASHBOARD ADMIN */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute allowed={['admin']}>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* LOGIN RELATÓRIOS */}
+        <Route path="/reports-login" element={<ReportsLoginPage />} />
+
+        {/* RELATÓRIOS */}
+        <Route path="/reports" element={<ReportsPage />} />
 
         {/* fallback */}
         <Route path="*" element={<Navigate to="/login" />} />
