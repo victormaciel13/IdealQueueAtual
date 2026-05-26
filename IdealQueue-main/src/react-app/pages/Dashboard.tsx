@@ -28,11 +28,6 @@ function fmtMonth(ym: string) {
   return `${months[parseInt(m) - 1]} ${y}`;
 }
 
-type TooltipFormatter = (value: unknown) => [string | number, string];
-
-const fmtCount: TooltipFormatter = (v) => [v as number, 'Atendimentos'];
-const fmtTime:  TooltipFormatter = (v) => [fmtSec(v as number), 'Tempo médio'];
-
 export default function DashboardPage() {
   const navigate  = useNavigate();
   const [month,   setMonth]   = useState(() => new Date().toISOString().slice(0, 7));
@@ -45,7 +40,9 @@ export default function DashboardPage() {
     setLoading(true);
     try {
       const all = await supabaseQueueApi.getAttendanceHistory();
-      setRecords(all.filter(r => r.finished_at?.startsWith(month)));
+      // Filtra pelo mês selecionado
+      const filtered = all.filter(r => r.finished_at?.startsWith(month));
+      setRecords(filtered);
     } finally {
       setLoading(false);
     }
@@ -71,7 +68,7 @@ export default function DashboardPage() {
 
   // ── Métricas gerais ──────────────────────────────────────────────────────
   const totalAtendimentos = records.length;
-  const tempoMedioGeral = totalAtendimentos
+  const tempoMedioGeral   = totalAtendimentos
     ? Math.round(records.reduce((s, r) => s + r.duration_seconds, 0) / totalAtendimentos)
     : 0;
 
@@ -107,7 +104,7 @@ export default function DashboardPage() {
     atendimentos: byHour[h] ?? 0,
   }));
 
-  // ── Distribuição pizza ────────────────────────────────────────────────────
+  // ── Distribuição de atendimentos por recrutadora (pizza) ─────────────────
   const pieData = userStats.map(u => ({ name: u.name, value: u.total }));
 
   // ── Ranking ──────────────────────────────────────────────────────────────
@@ -171,7 +168,7 @@ export default function DashboardPage() {
           </Button>
         </div>
 
-        {/* ── Cards resumo ── */}
+        {/* ── Cards de resumo ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-6">
@@ -239,11 +236,11 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={userStats} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} tickFormatter={(n: string) => n.split(' ')[0]} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} tickFormatter={n => n.split(' ')[0]} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip
-                      formatter={fmtCount}
-                      labelFormatter={(l: unknown) => `Recrutadora: ${l}`}
+                      formatter={(v: any) => [v, 'Atendimentos']}
+                      labelFormatter={l => `Recrutadora: ${l}`}
                     />
                     <Bar dataKey="total" radius={[6,6,0,0]}>
                       {userStats.map((_, i) => (
@@ -259,7 +256,7 @@ export default function DashboardPage() {
           {/* Tempo médio por recrutadora */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Tempo médio de atendimento</CardTitle>
+              <CardTitle className="text-base">Tempo médio de atendimento (minutos)</CardTitle>
             </CardHeader>
             <CardContent>
               {userStats.length === 0 ? (
@@ -268,11 +265,11 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={userStats} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} tickFormatter={(n: string) => n.split(' ')[0]} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${Math.floor(v/60)}m`} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} tickFormatter={n => n.split(' ')[0]} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${Math.floor(v/60)}m`} />
                     <Tooltip
-                      formatter={fmtTime}
-                      labelFormatter={(l: unknown) => `Recrutadora: ${l}`}
+                      formatter={(v: any) => [fmtSec(v), 'Tempo médio']}
+                      labelFormatter={l => `Recrutadora: ${l}`}
                     />
                     <Bar dataKey="avg" radius={[6,6,0,0]}>
                       {userStats.map((_, i) => (
@@ -299,7 +296,7 @@ export default function DashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="hora" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={fmtCount} />
+                    <Tooltip formatter={(v: any) => [v, 'Atendimentos']} />
                     <Legend />
                     <Line
                       type="monotone"
@@ -314,7 +311,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Pizza distribuição */}
+          {/* Distribuição pizza */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Distribuição de atendimentos</CardTitle>
@@ -333,9 +330,9 @@ export default function DashboardPage() {
                       outerRadius={100}
                       paddingAngle={3}
                       dataKey="value"
-                      label={({ name, percent }: { name?: string; percent?: number }) =>
-                        name && percent !== undefined
-                          ? `${name.split(' ')[0]} ${(percent * 100).toFixed(0)}%`
+                      label={(props: any) =>
+                        props.name && props.percent !== undefined
+                          ? `${props.name.split(' ')[0]} ${(props.percent * 100).toFixed(0)}%`
                           : ''
                       }
                       labelLine={false}
@@ -344,7 +341,7 @@ export default function DashboardPage() {
                         <Cell key={i} fill={COLORS[i % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={fmtCount} />
+                    <Tooltip formatter={(v: any) => [v, 'Atendimentos']} />
                   </PieChart>
                 </ResponsiveContainer>
               )}
@@ -377,9 +374,13 @@ export default function DashboardPage() {
                     {ranking.map((u, i) => (
                       <tr key={u.name} className={`border-b border-slate-50 ${i === 0 ? 'bg-emerald-50' : ''}`}>
                         <td className="py-3 px-4">
-                          {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (
-                            <span className="text-slate-400 font-bold">{i + 1}</span>
-                          )}
+                          {i === 0
+                            ? <span className="text-lg">🥇</span>
+                            : i === 1
+                            ? <span className="text-lg">🥈</span>
+                            : i === 2
+                            ? <span className="text-lg">🥉</span>
+                            : <span className="text-slate-400 font-bold">{i + 1}</span>}
                         </td>
                         <td className="py-3 px-4 font-semibold text-slate-900">{u.name}</td>
                         <td className="py-3 px-4 text-center">

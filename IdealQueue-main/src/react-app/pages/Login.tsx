@@ -22,9 +22,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const goByRole = (role: string) => {
-    if (role === 'admin') { navigate('/display'); return; }
+    if (role === 'admin') { navigate('/dashboard'); return; }
     if (role === 'reception') { navigate('/'); return; }
     if (role.startsWith('guiche')) { navigate('/guiche'); return; }
+    if (role.startsWith('dp')) { navigate('/dp'); return; }
     navigate('/login');
   };
 

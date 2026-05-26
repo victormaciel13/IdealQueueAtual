@@ -5,6 +5,7 @@ import ReceptionPage from '@/react-app/pages/Reception';
 import GuichePage from '@/react-app/pages/Guiche';
 import DisplayPage from '@/react-app/pages/Display';
 import DashboardPage from '@/react-app/pages/Dashboard';
+import DPPage from '@/react-app/pages/DP';
 import ReportsPage from '@/react-app/pages/Reports';
 import ReportsLoginPage from '@/react-app/pages/ReportsLogin';
 import { supabaseQueueApi } from '@/react-app/lib/supabaseQueue';
@@ -28,6 +29,9 @@ function ProtectedRoute({
     }
     if (currentUser.role.startsWith('guiche')) {
       return <Navigate to="/guiche" />;
+    }
+    if (currentUser.role.startsWith('dp')) {
+      return <Navigate to="/dp" />;
     }
     return <Navigate to="/" />;
   }
@@ -93,6 +97,16 @@ export default function App() {
 
         {/* RELATÓRIOS */}
         <Route path="/reports" element={<ReportsPage />} />
+
+        {/* DP */}
+        <Route
+          path="/dp"
+          element={
+            <ProtectedRoute allowed={['dp1','dp2','dp3','dp4','dp5','dp6']}>
+              <DPPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* fallback */}
         <Route path="*" element={<Navigate to="/login" />} />
