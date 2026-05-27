@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { checkReportsSession, clearReportsSession } from '@/react-app/pages/ReportsLogin';
 import { useNavigate } from 'react-router';
 import {
   Clock3,
@@ -45,6 +46,17 @@ function formatSeconds(totalSeconds: number) {
 export default function ReceptionPage() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (!checkReportsSession()) {
+      navigate('/reports-login');
+    }
+  }, [navigate]);
+
+  const handleReportsLogout = () => {
+    clearReportsSession();
+    navigate('/reports-login');
+  };
+
   const {
     receptionQueue,
     guicheQueue,
@@ -55,7 +67,6 @@ export default function ReceptionPage() {
     loading,
     error,
     addPerson,
-    logout,
     refresh,
   } = useQueue();
 
@@ -75,11 +86,7 @@ export default function ReceptionPage() {
     }
   }, [currentUser, loading, navigate]);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
+ 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100">
@@ -125,9 +132,9 @@ export default function ReceptionPage() {
               Tela pública
             </Button>
 
-            <Button variant="outline" onClick={handleLogout}>
+            <Button variant="outline" onClick={handleReportsLogout}>
               <LogOut className="mr-2 h-4 w-4" />
-              Sair
+              Sair dos Relatórios
             </Button>
           </div>
         </div>

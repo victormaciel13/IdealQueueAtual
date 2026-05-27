@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
+import * as XLSX from 'xlsx';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend,
@@ -7,8 +8,9 @@ import {
 import {
   Users, Clock, TrendingUp, Award, Monitor,
   LogOut, RefreshCw, ChevronLeft, ChevronRight,
+  Upload, FileSpreadsheet, X, Table,
 } from 'lucide-react';
-import { supabaseQueueApi } from '@/react-app/lib/supabaseQueue';
+import { supabaseQueueApi } from '@/react-app/lib/Supabasequeue';
 import { Button } from '@/react-app/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/react-app/components/ui/card';
 import type { AttendanceRecord } from '@/shared/types';
@@ -28,11 +30,22 @@ function fmtMonth(ym: string) {
   return `${months[parseInt(m) - 1]} ${y}`;
 }
 
+interface ExcelData {
+  fileName: string;
+  headers: string[];
+  rows: string[][];
+}
+
 export default function DashboardPage() {
   const navigate  = useNavigate();
   const [month,   setMonth]   = useState(() => new Date().toISOString().slice(0, 7));
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [excelData, setExcelData] = useState<ExcelData | null>(null);
+  const [excelLoading, setExcelLoading] = useState(false);
+  const [excelError, setExcelError] = useState('');
+  const [showExcel, setShowExcel] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentUser = supabaseQueueApi.getCurrentUser();
 
@@ -40,9 +53,7 @@ export default function DashboardPage() {
     setLoading(true);
     try {
       const all = await supabaseQueueApi.getAttendanceHistory();
-      // Filtra pelo mês selecionado
-      const filtered = all.filter(r => r.finished_at?.startsWith(month));
-      setRecords(filtered);
+      setRecords(all.filter(r => r.finished_at?.startsWith(month)));
     } finally {
       setLoading(false);
     }
@@ -64,6 +75,57 @@ export default function DashboardPage() {
     d.setMonth(d.getMonth() + 1);
     const next = d.toISOString().slice(0, 7);
     if (next <= new Date().toISOString().slice(0, 7)) setMonth(next);
+  };
+
+  // ── Upload Excel ─────────────────────────────────────────────────────────
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ];
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/i)) {
+      setExcelError('Formato inválido. Envie um arquivo .xlsx ou .xls');
+      return;
+    }
+
+    setExcelLoading(true);
+    setExcelError('');
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = event.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1 });
+
+        if (jsonData.length === 0) {
+          setExcelError('A planilha está vazia.');
+          setExcelLoading(false);
+          return;
+        }
+
+        const headers = (jsonData[0] as string[]).map(h => String(h ?? ''));
+        const rows = jsonData.slice(1).map(row =>
+          headers.map((_, i) => String((row as string[])[i] ?? ''))
+        );
+
+        setExcelData({ fileName: file.name, headers, rows });
+        setShowExcel(true);
+        setExcelLoading(false);
+      } catch {
+        setExcelError('Erro ao ler o arquivo. Verifique se é um Excel válido.');
+        setExcelLoading(false);
+      }
+    };
+    reader.readAsBinaryString(file);
+
+    // Reset input para permitir reenvio do mesmo arquivo
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // ── Métricas gerais ──────────────────────────────────────────────────────
@@ -92,7 +154,6 @@ export default function DashboardPage() {
     .map(u => ({ ...u, avg: u.total ? Math.round(u.totalSec / u.total) : 0 }))
     .sort((a, b) => b.total - a.total);
 
-  // ── Atendimentos por hora ────────────────────────────────────────────────
   const byHour: Record<number, number> = {};
   records.forEach(r => {
     if (!r.finished_at) return;
@@ -104,11 +165,8 @@ export default function DashboardPage() {
     atendimentos: byHour[h] ?? 0,
   }));
 
-  // ── Distribuição de atendimentos por recrutadora (pizza) ─────────────────
-  const pieData = userStats.map(u => ({ name: u.name, value: u.total }));
-
-  // ── Ranking ──────────────────────────────────────────────────────────────
-  const ranking = [...userStats].sort((a, b) => a.avg - b.avg);
+  const pieData  = userStats.map(u => ({ name: u.name, value: u.total }));
+  const ranking  = [...userStats].sort((a, b) => a.avg - b.avg);
 
   if (loading) {
     return (
@@ -132,6 +190,41 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+
+            {/* Botão Upload Excel */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <Button
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={excelLoading}
+              className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            >
+              {excelLoading ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4" />
+              )}
+              {excelLoading ? 'Carregando...' : 'Importar Excel'}
+            </Button>
+
+            {/* Botão ver planilha (só aparece se tem dados) */}
+            {excelData && (
+              <Button
+                variant="outline"
+                onClick={() => setShowExcel(v => !v)}
+                className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50"
+              >
+                <Table className="w-4 h-4" />
+                {showExcel ? 'Ocultar planilha' : 'Ver planilha'}
+              </Button>
+            )}
+
             <Button variant="outline" onClick={() => navigate('/display')}>
               <Monitor className="w-4 h-4 mr-2" />
               Tela de Exibição
@@ -142,9 +235,70 @@ export default function DashboardPage() {
             </Button>
           </div>
         </div>
+
+        {/* Erro de upload */}
+        {excelError && (
+          <div className="max-w-7xl mx-auto px-6 pb-3">
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg flex items-center justify-between">
+              {excelError}
+              <button onClick={() => setExcelError('')} className="ml-3 text-red-400 hover:text-red-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+
+        {/* ── Tabela Excel importada ── */}
+        {excelData && showExcel && (
+          <Card className="border-emerald-200">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between text-base">
+                <span className="flex items-center gap-2">
+                  <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                  {excelData.fileName}
+                  <span className="text-xs font-normal text-slate-400 ml-2">
+                    {excelData.rows.length} linha{excelData.rows.length !== 1 ? 's' : ''}
+                  </span>
+                </span>
+                <button
+                  onClick={() => { setExcelData(null); setShowExcel(false); }}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto max-h-96 overflow-y-auto rounded-lg border border-slate-100">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-slate-50">
+                    <tr>
+                      {excelData.headers.map((h, i) => (
+                        <th key={i} className="text-left py-3 px-4 font-semibold text-slate-600 border-b border-slate-200 whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {excelData.rows.map((row, ri) => (
+                      <tr key={ri} className={ri % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                        {row.map((cell, ci) => (
+                          <td key={ci} className="py-2 px-4 text-slate-700 border-b border-slate-100 whitespace-nowrap">
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ── Seletor de mês ── */}
         <div className="flex items-center gap-4">
@@ -224,7 +378,6 @@ export default function DashboardPage() {
         {/* ── Gráficos ── */}
         <div className="grid lg:grid-cols-2 gap-6">
 
-          {/* Atendimentos por recrutadora */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Atendimentos por recrutadora</CardTitle>
@@ -236,16 +389,11 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={userStats} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} tickFormatter={n => n.split(' ')[0]} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} tickFormatter={(n: any) => n.split(' ')[0]} />
                     <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip
-                      formatter={(v: any) => [v, 'Atendimentos']}
-                      labelFormatter={l => `Recrutadora: ${l}`}
-                    />
+                    <Tooltip formatter={(v: any) => [v, 'Atendimentos']} labelFormatter={(l: any) => `Recrutadora: ${l}`} />
                     <Bar dataKey="total" radius={[6,6,0,0]}>
-                      {userStats.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                      ))}
+                      {userStats.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -253,7 +401,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Tempo médio por recrutadora */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Tempo médio de atendimento (minutos)</CardTitle>
@@ -265,16 +412,11 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={userStats} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} tickFormatter={n => n.split(' ')[0]} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${Math.floor(v/60)}m`} />
-                    <Tooltip
-                      formatter={(v: any) => [fmtSec(v), 'Tempo médio']}
-                      labelFormatter={l => `Recrutadora: ${l}`}
-                    />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} tickFormatter={(n: any) => n.split(' ')[0]} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: any) => `${Math.floor(v/60)}m`} />
+                    <Tooltip formatter={(v: any) => [fmtSec(v), 'Tempo médio']} labelFormatter={(l: any) => `Recrutadora: ${l}`} />
                     <Bar dataKey="avg" radius={[6,6,0,0]}>
-                      {userStats.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                      ))}
+                      {userStats.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -282,7 +424,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Atendimentos por hora */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Atendimentos por horário</CardTitle>
@@ -298,20 +439,13 @@ export default function DashboardPage() {
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip formatter={(v: any) => [v, 'Atendimentos']} />
                     <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="atendimentos"
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      dot={{ r: 4, fill: '#10b981' }}
-                    />
+                    <Line type="monotone" dataKey="atendimentos" stroke="#10b981" strokeWidth={2} dot={{ r: 4, fill: '#10b981' }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}
             </CardContent>
           </Card>
 
-          {/* Distribuição pizza */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Distribuição de atendimentos</CardTitle>
@@ -337,9 +471,7 @@ export default function DashboardPage() {
                       }
                       labelLine={false}
                     >
-                      {pieData.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                      ))}
+                      {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
                     <Tooltip formatter={(v: any) => [v, 'Atendimentos']} />
                   </PieChart>
@@ -374,29 +506,15 @@ export default function DashboardPage() {
                     {ranking.map((u, i) => (
                       <tr key={u.name} className={`border-b border-slate-50 ${i === 0 ? 'bg-emerald-50' : ''}`}>
                         <td className="py-3 px-4">
-                          {i === 0
-                            ? <span className="text-lg">🥇</span>
-                            : i === 1
-                            ? <span className="text-lg">🥈</span>
-                            : i === 2
-                            ? <span className="text-lg">🥉</span>
-                            : <span className="text-slate-400 font-bold">{i + 1}</span>}
+                          {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : <span className="text-slate-400 font-bold">{i + 1}</span>}
                         </td>
                         <td className="py-3 px-4 font-semibold text-slate-900">{u.name}</td>
                         <td className="py-3 px-4 text-center">
-                          <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full font-bold">
-                            {u.total}
-                          </span>
+                          <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full font-bold">{u.total}</span>
                         </td>
-                        <td className="py-3 px-4 text-center font-semibold text-blue-700">
-                          {fmtSec(u.avg)}
-                        </td>
-                        <td className="py-3 px-4 text-center text-emerald-600 font-semibold">
-                          {u.fastest !== null ? fmtSec(u.fastest) : '—'}
-                        </td>
-                        <td className="py-3 px-4 text-center text-red-500 font-semibold">
-                          {u.slowest !== null ? fmtSec(u.slowest) : '—'}
-                        </td>
+                        <td className="py-3 px-4 text-center font-semibold text-blue-700">{fmtSec(u.avg)}</td>
+                        <td className="py-3 px-4 text-center text-emerald-600 font-semibold">{u.fastest !== null ? fmtSec(u.fastest) : '—'}</td>
+                        <td className="py-3 px-4 text-center text-red-500 font-semibold">{u.slowest !== null ? fmtSec(u.slowest) : '—'}</td>
                       </tr>
                     ))}
                   </tbody>
