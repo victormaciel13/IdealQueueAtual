@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Person, QueueStats, GuicheTimer } from '@/shared/types';
-import { supabaseQueueApi } from '@/react-app/lib/Supabasequeue';
+import { supabaseQueueApi } from '@/react-app/lib/supabaseQueue';;
 
 interface LastCalled {
   reception: (Person & { called_for: string })[];

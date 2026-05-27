@@ -8,7 +8,7 @@ import DashboardPage from '@/react-app/pages/Dashboard';
 import DPPage from '@/react-app/pages/DP';
 import ReportsPage from '@/react-app/pages/Reports';
 import ReportsLoginPage from '@/react-app/pages/ReportsLogin';
-import { supabaseQueueApi } from '@/react-app/lib/Supabasequeue';
+import { supabaseQueueApi } from '@/react-app/lib/supabaseQueue';
 
 function ProtectedRoute({
   children,
