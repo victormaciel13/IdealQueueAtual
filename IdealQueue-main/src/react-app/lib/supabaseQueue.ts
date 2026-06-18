@@ -8,8 +8,6 @@ import type {
   AttendanceRecord,
 } from '@/shared/types';
 
-// ─── helpers ────────────────────────────────────────────────────────────────
-
 function now() {
   return new Date().toISOString();
 }
@@ -30,8 +28,6 @@ function sortDp(persons: Person[]) {
   });
 }
 
-// ─── settings helpers ────────────────────────────────────────────────────────
-
 async function getSettings() {
   const { data } = await supabase
     .from('queue_settings')
@@ -50,8 +46,6 @@ async function updateSettings(patch: Record<string, number>) {
   await supabase.from('queue_settings').update(patch).eq('id', 1);
 }
 
-// ─── current user (localStorage apenas para sessão) ──────────────────────────
-
 const SESSION_KEY = 'idealqueue_session';
 
 function saveSession(user: User) {
@@ -68,11 +62,7 @@ function readSession(): User | null {
   try { return JSON.parse(raw) as User; } catch { return null; }
 }
 
-// ─── API pública ─────────────────────────────────────────────────────────────
-
 export const supabaseQueueApi = {
-
-  // ── auth ──────────────────────────────────────────────────────────────────
 
   async login(username: string, password: string): Promise<LoginResult> {
     const { data, error } = await supabase
@@ -101,8 +91,6 @@ export const supabaseQueueApi = {
     return readSession();
   },
 
-  // ── leitura de filas ──────────────────────────────────────────────────────
-
   async getReception(): Promise<Person[]> {
     const { data } = await supabase
       .from('persons')
@@ -124,7 +112,7 @@ export const supabaseQueueApi = {
     const { data } = await supabase
       .from('persons')
       .select('*')
-      .eq('stage', 'dp');
+      .in('stage', ['dp_pending', 'dp']);
     return sortDp((data ?? []) as Person[]);
   },
 
@@ -132,14 +120,14 @@ export const supabaseQueueApi = {
     const { data } = await supabase
       .from('persons')
       .select('*')
-      .in('stage', ['reception', 'pending', 'guiche', 'dp']);
+      .in('stage', ['reception', 'pending', 'guiche', 'dp_pending', 'dp']);
 
     const persons = (data ?? []) as Person[];
     const settings = await getSettings();
 
     const reception = persons.filter(p => p.stage === 'reception');
     const guiche    = persons.filter(p => p.stage === 'guiche' || (p.stage as string) === 'pending');
-    const dp        = persons.filter(p => p.stage === 'dp');
+    const dp        = persons.filter(p => p.stage === 'dp' || (p.stage as string) === 'dp_pending');
 
     const waitedMinutes = persons.map(p => {
       const end   = p.called_reception_at ? new Date(p.called_reception_at).getTime() : Date.now();
@@ -289,8 +277,6 @@ export const supabaseQueueApi = {
       .sort((a, b) => a.average_duration_seconds - b.average_duration_seconds);
   },
 
-  // ── mutações ──────────────────────────────────────────────────────────────
-
   async addPerson(data: {
     name: string;
     cpf: string;
@@ -303,26 +289,26 @@ export const supabaseQueueApi = {
 
     const ts = now();
     const person = {
-      name:             data.name,
-      cpf:               data.cpf,
-      is_pregnant:      data.is_pregnant ? 1 : 0,
-      has_infant:       data.has_infant  ? 1 : 0,
-      priority:         data.is_pregnant || data.has_infant ? 'priority' : 'normal',
-      ticket_reception: `R${String(newCounter).padStart(3, '0')}`,
-      ticket_dp:        null,
-      stage:            'reception',
-      assigned_guiche:  null,
-      assigned_user_id: null,
+      name:               data.name,
+      cpf:                data.cpf,
+      is_pregnant:        data.is_pregnant ? 1 : 0,
+      has_infant:         data.has_infant  ? 1 : 0,
+      priority:           data.is_pregnant || data.has_infant ? 'priority' : 'normal',
+      ticket_reception:   `R${String(newCounter).padStart(3, '0')}`,
+      ticket_dp:          null,
+      stage:              'reception',
+      assigned_guiche:    null,
+      assigned_user_id:   null,
       assigned_user_name: null,
-      check_in_time:    ts,
-      started_at:       null,
-      finished_at:      null,
-      duration_seconds: null,
+      check_in_time:      ts,
+      started_at:         null,
+      finished_at:        null,
+      duration_seconds:   null,
       called_reception_at: null,
-      called_dp_at:     null,
-      completed_at:     null,
-      created_at:       ts,
-      updated_at:       ts,
+      called_dp_at:       null,
+      completed_at:       null,
+      created_at:         ts,
+      updated_at:         ts,
     };
 
     const { data: inserted, error } = await supabase
@@ -336,7 +322,6 @@ export const supabaseQueueApi = {
   },
 
   async callForReception(guiche: number, userId?: number | null): Promise<Person> {
-    // Verificar se guichê está livre
     const { data: occupied } = await supabase
       .from('persons')
       .select('id')
@@ -345,7 +330,6 @@ export const supabaseQueueApi = {
 
     if (occupied && occupied.length > 0) throw new Error('Guichê já está ocupado');
 
-    // Buscar próximo da fila
     const reception = await this.getReception();
     if (reception.length === 0) throw new Error('Nenhuma pessoa na fila');
 
@@ -365,7 +349,6 @@ export const supabaseQueueApi = {
       throw new Error('Nenhuma pessoa na fila');
     }
 
-    // Buscar usuário ativo
     let assignedUserName: string | null = null;
     let assignedUserId:   number | null = null;
 
@@ -389,13 +372,13 @@ export const supabaseQueueApi = {
 
     const calledAt = now();
     const patch = {
-      stage:              'pending',
-      assigned_guiche:    guiche,
-      assigned_user_id:   assignedUserId,
-      assigned_user_name: assignedUserName,
+      stage:               'pending',
+      assigned_guiche:     guiche,
+      assigned_user_id:    assignedUserId,
+      assigned_user_name:  assignedUserName,
       called_reception_at: calledAt,
-      started_at:         null,
-      updated_at:         calledAt,
+      started_at:          null,
+      updated_at:          calledAt,
     };
 
     const { data: updated, error } = await supabase
@@ -407,13 +390,25 @@ export const supabaseQueueApi = {
 
     if (error) throw new Error(error.message);
 
-    // Atualizar contador de normais
     if (next.priority === 'priority') {
       await updateSettings({ normal_served_count: 0 });
     } else {
       await updateSettings({ normal_served_count: settings.normal_served_count + 1 });
     }
 
+    return updated as Person;
+  },
+
+  async acceptGuiche(id: number): Promise<Person> {
+    const startedAt = now();
+    const { data: updated, error } = await supabase
+      .from('persons')
+      .update({ stage: 'guiche', started_at: startedAt, updated_at: startedAt })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
     return updated as Person;
   },
 
@@ -438,12 +433,12 @@ export const supabaseQueueApi = {
     const newAttCounter = settings.attendance_counter + 1;
 
     await updateSettings({
-      ticket_counter_dp:   newCounterDP,
-      attendance_counter:  newAttCounter,
+      ticket_counter_dp:  newCounterDP,
+      attendance_counter: newAttCounter,
     });
 
     const patch = {
-      stage:            'dp',
+      stage:            'dp_pending',
       ticket_dp:        `DP${String(newCounterDP).padStart(3, '0')}`,
       finished_at:      finishedAt,
       duration_seconds: durationSec,
@@ -460,7 +455,6 @@ export const supabaseQueueApi = {
 
     if (error) throw new Error(error.message);
 
-    // Salvar no histórico
     await supabase.from('attendance_history').insert({
       person_id:        person.id,
       person_name:      person.name,
@@ -477,14 +471,42 @@ export const supabaseQueueApi = {
     return updated as Person;
   },
 
+  async transferGuiche(id: number, newGuiche: number): Promise<Person> {
+    const { data: occupied } = await supabase
+      .from('persons')
+      .select('id')
+      .in('stage', ['guiche', 'pending'])
+      .eq('assigned_guiche', newGuiche);
 
-  async acceptGuiche(id: number): Promise<Person> {
-    const startedAt = now();
+    if (occupied && occupied.length > 0) throw new Error('Guichê destino está ocupado');
+
+    const ts = now();
     const { data: updated, error } = await supabase
       .from('persons')
-      .update({ stage: 'guiche', started_at: startedAt, updated_at: startedAt })
+      .update({
+        stage:           'pending',
+        assigned_guiche: newGuiche,
+        started_at:      null,
+        updated_at:      ts,
+      })
       .eq('id', id)
-      .eq('stage', 'pending')
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return updated as Person;
+  },
+
+  async acceptDP(id: number): Promise<Person> {
+    const ts = now();
+    const { data: updated, error } = await supabase
+      .from('persons')
+      .update({
+        stage:        'dp',
+        called_dp_at: ts,
+        updated_at:   ts,
+      })
+      .eq('id', id)
       .select()
       .single();
 
@@ -521,42 +543,12 @@ export const supabaseQueueApi = {
     return { success: true };
   },
 
-
-
-
-  async transferGuiche(id: number, newGuiche: number): Promise<Person> {
-    // Verifica se o guichê destino está livre
-    const { data: occupied } = await supabase
-      .from('persons')
-      .select('id')
-      .in('stage', ['guiche', 'pending'])
-      .eq('assigned_guiche', newGuiche);
-
-    if (occupied && occupied.length > 0) throw new Error('Guichê destino está ocupado');
-
-    const ts = now();
-    const { data: updated, error } = await supabase
-      .from('persons')
-      .update({
-        stage:           'pending',
-        assigned_guiche: newGuiche,
-        started_at:      null,
-        updated_at:      ts,
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return updated as Person;
-  },
-
   async resetQueue(): Promise<{ success: boolean }> {
     const ts = now();
     await supabase
       .from('persons')
       .update({ stage: 'completed', completed_at: ts, updated_at: ts })
-      .in('stage', ['reception', 'pending', 'guiche', 'dp']);
+      .in('stage', ['reception', 'pending', 'guiche', 'dp_pending', 'dp']);
 
     await updateSettings({
       normal_served_count: 0,

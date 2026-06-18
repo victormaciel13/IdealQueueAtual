@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Person, QueueStats, User, LoginResult, GuicheTimer } from '@/shared/types';
-import { supabaseQueueApi } from '@/react-app/lib/Supabasequeue';
+import { supabaseQueueApi } from '@/react-app/lib/supabaseQueue';
 
 export function useQueue() {
   const [receptionQueue,   setReceptionQueue]   = useState<Person[]>([]);

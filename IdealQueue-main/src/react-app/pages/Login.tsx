@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Lock, UserCircle2 } from 'lucide-react';
+import { Lock, UserCircle2, TrendingUp } from 'lucide-react';
 import { useQueue } from '@/react-app/hooks/useQueue';
 import { Button } from '@/react-app/components/ui/button';
 import {
@@ -39,7 +39,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-blue-50 to-slate-200 px-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-blue-50 to-slate-200 px-4">
       <div className="w-full max-w-md">
         <Card className="border-0 shadow-xl">
           <CardHeader className="pb-2">
@@ -110,6 +110,17 @@ export default function LoginPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Acesso ao painel de indicadores (diretoria / RH) — canto inferior direito */}
+      <button
+        type="button"
+        onClick={() => navigate('/indicadores-login')}
+        className="absolute bottom-6 right-6 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-slate-900"
+        title="Painel de Turnover & Absenteísmo"
+      >
+        <TrendingUp className="h-4 w-4 text-blue-700" />
+        Painel de Indicadores
+      </button>
     </div>
   );
 }

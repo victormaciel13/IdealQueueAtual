@@ -8,7 +8,10 @@ import DashboardPage from '@/react-app/pages/Dashboard';
 import DPPage from '@/react-app/pages/DP';
 import ReportsPage from '@/react-app/pages/Reports';
 import ReportsLoginPage from '@/react-app/pages/ReportsLogin';
-import { supabaseQueueApi } from '@/react-app/lib/Supabasequeue';
+import IndicadoresLoginPage from '@/react-app/pages/IndicadoresLogin';
+import IndicadoresPage from '@/react-app/pages/Indicadores';
+import IndicadoresImportPage from '@/react-app/pages/IndicadoresImport';
+import { supabaseQueueApi } from '@/react-app/lib/supabaseQueue';
 
 function ProtectedRoute({
   children,
@@ -97,6 +100,15 @@ export default function App() {
 
         {/* RELATÓRIOS */}
         <Route path="/reports" element={<ReportsPage />} />
+
+        {/* LOGIN INDICADORES (Turnover & Absenteísmo) */}
+        <Route path="/indicadores-login" element={<IndicadoresLoginPage />} />
+
+        {/* PAINEL DE INDICADORES */}
+        <Route path="/indicadores" element={<IndicadoresPage />} />
+
+        {/* IMPORTAÇÃO DE DADOS (Excel) */}
+        <Route path="/indicadores/importar" element={<IndicadoresImportPage />} />
 
         {/* DP */}
         <Route
