@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import * as XLSX from 'xlsx';
 import {
@@ -7,8 +7,7 @@ import {
 } from 'recharts';
 import {
   Users, Clock, TrendingUp, Award, Monitor,
-  LogOut, RefreshCw, ChevronLeft, ChevronRight,
-  Upload, FileSpreadsheet, X, Table,
+  LogOut, RefreshCw, ChevronLeft, ChevronRight, Download,
 } from 'lucide-react';
 import { supabaseQueueApi } from '@/react-app/lib/supabaseQueue';
 import { Button } from '@/react-app/components/ui/button';
@@ -30,22 +29,12 @@ function fmtMonth(ym: string) {
   return `${months[parseInt(m) - 1]} ${y}`;
 }
 
-interface ExcelData {
-  fileName: string;
-  headers: string[];
-  rows: string[][];
-}
-
 export default function DashboardPage() {
-  const navigate  = useNavigate();
+  const navigate = useNavigate();
   const [month,   setMonth]   = useState(() => new Date().toISOString().slice(0, 7));
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [excelData, setExcelData] = useState<ExcelData | null>(null);
-  const [excelLoading, setExcelLoading] = useState(false);
-  const [excelError, setExcelError] = useState('');
-  const [showExcel, setShowExcel] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [exporting, setExporting] = useState(false);
 
   const currentUser = supabaseQueueApi.getCurrentUser();
 
@@ -53,7 +42,7 @@ export default function DashboardPage() {
     setLoading(true);
     try {
       const all = await supabaseQueueApi.getAttendanceHistory();
-      setRecords(all.filter(r => r.finished_at?.startsWith(month)));
+      setRecords(all.filter((r: AttendanceRecord) => r.finished_at?.startsWith(month)));
     } finally {
       setLoading(false);
     }
@@ -77,64 +66,70 @@ export default function DashboardPage() {
     if (next <= new Date().toISOString().slice(0, 7)) setMonth(next);
   };
 
-  // ── Upload Excel ─────────────────────────────────────────────────────────
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // ── Export Excel ──────────────────────────────────────────────────────────
+  const handleExport = () => {
+    if (records.length === 0) return;
+    setExporting(true);
 
-    const validTypes = [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel',
-    ];
-    if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/i)) {
-      setExcelError('Formato inválido. Envie um arquivo .xlsx ou .xls');
-      return;
+    try {
+      // Aba 1 — Histórico completo
+      const historicoData = records.map(r => ({
+        'Candidato':        r.person_name ?? '',
+        'Recrutadora':      r.user_name ?? '',
+        'Guichê':           r.guiche_number ?? '',
+        'Início':           r.started_at ? new Date(r.started_at).toLocaleString('pt-BR') : '',
+        'Término':          r.finished_at ? new Date(r.finished_at).toLocaleString('pt-BR') : '',
+        'Duração (seg)':    r.duration_seconds ?? 0,
+        'Duração':          fmtSec(r.duration_seconds ?? 0),
+      }));
+
+      // Aba 2 — Ranking por recrutadora
+      const byUser = new Map<string, {
+        name: string; total: number; totalSec: number;
+        fastest: number | null; slowest: number | null;
+      }>();
+
+      records.forEach(r => {
+        const key = r.user_name ?? 'Sem usuário';
+        if (!byUser.has(key)) byUser.set(key, { name: key, total: 0, totalSec: 0, fastest: null, slowest: null });
+        const cur = byUser.get(key)!;
+        cur.total    += 1;
+        cur.totalSec += r.duration_seconds ?? 0;
+        if (cur.fastest === null || (r.duration_seconds ?? 0) < cur.fastest) cur.fastest = r.duration_seconds ?? 0;
+        if (cur.slowest === null || (r.duration_seconds ?? 0) > cur.slowest) cur.slowest = r.duration_seconds ?? 0;
+      });
+
+      const rankingData = Array.from(byUser.values())
+        .map(u => ({
+          'Recrutadora':       u.name,
+          'Total atendidos':   u.total,
+          'Tempo médio':       fmtSec(u.total ? Math.round(u.totalSec / u.total) : 0),
+          'Mais rápido':       u.fastest !== null ? fmtSec(u.fastest) : '—',
+          'Mais demorado':     u.slowest !== null ? fmtSec(u.slowest) : '—',
+        }))
+        .sort((a, b) => b['Total atendidos'] - a['Total atendidos']);
+
+      // Criar workbook com 2 abas
+      const wb = XLSX.utils.book_new();
+      const wsHistorico = XLSX.utils.json_to_sheet(historicoData);
+      const wsRanking   = XLSX.utils.json_to_sheet(rankingData);
+
+      XLSX.utils.book_append_sheet(wb, wsHistorico, 'Histórico');
+      XLSX.utils.book_append_sheet(wb, wsRanking,   'Ranking');
+
+      // Download
+      XLSX.writeFile(wb, `IdealFila_${fmtMonth(month).replace(' ', '_')}.xlsx`);
+    } finally {
+      setExporting(false);
     }
-
-    setExcelLoading(true);
-    setExcelError('');
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = event.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1 });
-
-        if (jsonData.length === 0) {
-          setExcelError('A planilha está vazia.');
-          setExcelLoading(false);
-          return;
-        }
-
-        const headers = (jsonData[0] as string[]).map(h => String(h ?? ''));
-        const rows = jsonData.slice(1).map(row =>
-          headers.map((_, i) => String((row as string[])[i] ?? ''))
-        );
-
-        setExcelData({ fileName: file.name, headers, rows });
-        setShowExcel(true);
-        setExcelLoading(false);
-      } catch {
-        setExcelError('Erro ao ler o arquivo. Verifique se é um Excel válido.');
-        setExcelLoading(false);
-      }
-    };
-    reader.readAsBinaryString(file);
-
-    // Reset input para permitir reenvio do mesmo arquivo
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // ── Métricas gerais ──────────────────────────────────────────────────────
   const totalAtendimentos = records.length;
   const tempoMedioGeral   = totalAtendimentos
-    ? Math.round(records.reduce((s, r) => s + r.duration_seconds, 0) / totalAtendimentos)
+    ? Math.round(records.reduce((s, r) => s + (r.duration_seconds ?? 0), 0) / totalAtendimentos)
     : 0;
 
-  // ── Por recrutadora ──────────────────────────────────────────────────────
   const byUser = new Map<string, {
     name: string; total: number; totalSec: number;
     fastest: number | null; slowest: number | null;
@@ -145,9 +140,9 @@ export default function DashboardPage() {
     if (!byUser.has(key)) byUser.set(key, { name: key, total: 0, totalSec: 0, fastest: null, slowest: null });
     const cur = byUser.get(key)!;
     cur.total    += 1;
-    cur.totalSec += r.duration_seconds;
-    if (cur.fastest === null || r.duration_seconds < cur.fastest) cur.fastest = r.duration_seconds;
-    if (cur.slowest === null || r.duration_seconds > cur.slowest) cur.slowest = r.duration_seconds;
+    cur.totalSec += r.duration_seconds ?? 0;
+    if (cur.fastest === null || (r.duration_seconds ?? 0) < cur.fastest) cur.fastest = r.duration_seconds ?? 0;
+    if (cur.slowest === null || (r.duration_seconds ?? 0) > cur.slowest) cur.slowest = r.duration_seconds ?? 0;
   });
 
   const userStats = Array.from(byUser.values())
@@ -161,12 +156,12 @@ export default function DashboardPage() {
     byHour[h] = (byHour[h] ?? 0) + 1;
   });
   const hourData = Array.from({ length: 12 }, (_, i) => i + 7).map(h => ({
-    hora: `${String(h).padStart(2,'0')}h`,
+    hora: `${String(h).padStart(2,'00')}h`,
     atendimentos: byHour[h] ?? 0,
   }));
 
-  const pieData  = userStats.map(u => ({ name: u.name, value: u.total }));
-  const ranking  = [...userStats].sort((a, b) => a.avg - b.avg);
+  const pieData = userStats.map(u => ({ name: u.name, value: u.total }));
+  const ranking = [...userStats].sort((a, b) => a.avg - b.avg);
 
   if (loading) {
     return (
@@ -191,39 +186,20 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-2">
 
-            {/* Botão Upload Excel */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleFileChange}
-            />
+            {/* Botão Exportar Excel */}
             <Button
               variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={excelLoading}
+              onClick={handleExport}
+              disabled={exporting || records.length === 0}
               className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
             >
-              {excelLoading ? (
+              {exporting ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
               ) : (
-                <Upload className="w-4 h-4" />
+                <Download className="w-4 h-4" />
               )}
-              {excelLoading ? 'Carregando...' : 'Importar Excel'}
+              {exporting ? 'Exportando...' : 'Exportar Excel'}
             </Button>
-
-            {/* Botão ver planilha (só aparece se tem dados) */}
-            {excelData && (
-              <Button
-                variant="outline"
-                onClick={() => setShowExcel(v => !v)}
-                className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50"
-              >
-                <Table className="w-4 h-4" />
-                {showExcel ? 'Ocultar planilha' : 'Ver planilha'}
-              </Button>
-            )}
 
             <Button variant="outline" onClick={() => navigate('/display')}>
               <Monitor className="w-4 h-4 mr-2" />
@@ -235,70 +211,9 @@ export default function DashboardPage() {
             </Button>
           </div>
         </div>
-
-        {/* Erro de upload */}
-        {excelError && (
-          <div className="max-w-7xl mx-auto px-6 pb-3">
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg flex items-center justify-between">
-              {excelError}
-              <button onClick={() => setExcelError('')} className="ml-3 text-red-400 hover:text-red-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-
-        {/* ── Tabela Excel importada ── */}
-        {excelData && showExcel && (
-          <Card className="border-emerald-200">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between text-base">
-                <span className="flex items-center gap-2">
-                  <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
-                  {excelData.fileName}
-                  <span className="text-xs font-normal text-slate-400 ml-2">
-                    {excelData.rows.length} linha{excelData.rows.length !== 1 ? 's' : ''}
-                  </span>
-                </span>
-                <button
-                  onClick={() => { setExcelData(null); setShowExcel(false); }}
-                  className="text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto max-h-96 overflow-y-auto rounded-lg border border-slate-100">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-slate-50">
-                    <tr>
-                      {excelData.headers.map((h, i) => (
-                        <th key={i} className="text-left py-3 px-4 font-semibold text-slate-600 border-b border-slate-200 whitespace-nowrap">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {excelData.rows.map((row, ri) => (
-                      <tr key={ri} className={ri % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                        {row.map((cell, ci) => (
-                          <td key={ci} className="py-2 px-4 text-slate-700 border-b border-slate-100 whitespace-nowrap">
-                            {cell}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* ── Seletor de mês ── */}
         <div className="flex items-center gap-4">
